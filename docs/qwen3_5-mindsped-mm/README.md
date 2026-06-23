@@ -9,7 +9,7 @@
 | 序号 | 文档 | 主题 | 状态 |
 |------|------|------|------|
 | **01** | [架构总览](./01-qwen3.5-architecture-overview.md) | Qwen3.5 整体架构（4 大创新、397B-A17B 详细参数） | ✅ |
-| 02 | GDN 详解（待写） | Gated DeltaNet 数学 + PyTorch 实现 | ⬜ |
+| **02** | [GDN 详解](./02-gated-deltanet-deep-dive.md) | Gated DeltaNet 完整深度（含演讲 PPT + Q&A）| ✅ |
 | 03 | Gated Attention 源码（待写） | QK Norm + Output Gate 完整实现 | ⬜ |
 | 04 | mRoPE 详解（待写） | 多模态位置编码原理 + 实现 | ⬜ |
 | 05 | 极致稀疏 MoE 工程（待写） | AllToAll + Token 调度 | ⬜ |
