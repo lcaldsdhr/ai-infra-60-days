@@ -263,7 +263,79 @@ FLA 的官方实现：[flash-linear-attention](https://github.com/sustcsonglin/f
 
 > **核心区别一句话**：Qwen3.5 敢用 27 层 ViT + 简单投影 + 49 个 token 走 60 层 LLM，**前提是 LLM 权重在训练中被调过**——视觉信息不是"翻译"给 LLM 的，是 LLM **学会了怎么读**这些视觉 token。
 
-## 创新点 4：（待补充）
+## 创新点 4：mRoPE 3 维位置编码
+
+> **数据来源**：HF config `Qwen/Qwen3.5-397B-A17B/config.json`（`rope_parameters` 字段）。本地存档：`docs/qwen3_5-mindsped-mm/config-397B.json`
+
+### 核心机制：1 套公式表达 3 个维度
+
+| 配置 | 值 | config 字段 |
+|---|---|---|
+| 总维度 | 64 | `head_dim * partial_rotary_factor = 256 * 0.25` |
+| 三段切片 | [11, 11, 10] = 32 维 | `rope_parameters.mrope_section` |
+| 应用比例 | 25%（只对 25% 维度做 RoPE） | `rope_parameters.partial_rotary_factor` |
+| 基频 θ | 10000000 | `rope_parameters.rope_theta` |
+| 排布模式 | **interleaved**（交织） | `rope_parameters.mrope_interleaved: true` |
+
+> **直觉**：1D RoPE 把 64 维拆成 32 对 `(sin, cos)`，每对编码一个频率。mRoPE 把这 32 对**按维度切片**到 3 组——前 11 对编时间维、中间 11 对编高度维、最后 10 对编宽度维。**维度上看是切分，频率上看是三套独立 RoPE。**
+
+### 跟 1D RoPE 的代码对比
+
+```python
+# 1D RoPE（标准文本）
+def rope_1d(pos, dim=64):
+    # 32 对 (sin, cos)，所有维度共享 pos
+    inv_freq = 1.0 / (theta ** (torch.arange(0, dim, 2) / dim))
+    freqs = pos * inv_freq          # shape: (L, 32)
+    return sin/freqs, cos/freqs     # 整段 64 维都用这 32 个频率
+
+# mRoPE（Qwen3.5）
+def mrope(pos_t, pos_h, pos_w, dim=64, section=[11, 11, 10]):
+    # pos_t / pos_h / pos_w 都是 (L,) 形状
+    inv_freq = 1.0 / (theta ** (torch.arange(0, dim, 2) / dim))
+    # 关键：32 个频率按 section 切 3 段，每段配一个维度
+    freq_t = pos_t[:, None] * inv_freq[0:11]    # 11 个频率编时间
+    freq_h = pos_h[:, None] * inv_freq[11:22]   # 11 个频率编高度
+    freq_w = pos_w[:, None] * inv_freq[22:32]   # 10 个频率编宽度
+    # 拼回 (L, 32)，再扩展到 64 维
+    return sin/freqs, cos/freqs
+```
+
+> **关键差别**：1D RoPE 全程 1 个位置 `pos`；mRoPE 用 **3 个独立位置**（t/h/w），各编各的，最后拼回一个张量。
+
+### 文本和视觉怎么"统一"
+
+| Token 类型 | `pos_t` | `pos_h` | `pos_w` | 含义 |
+|---|---|---|---|---|
+| 文本 token | 真实 token 位置 | 复制 pos_t | 复制 pos_t | 退化成 1D RoPE |
+| 图像 patch | 0 | patch 行号 | patch 列号 | 编码 2D 空间位置 |
+| 视频 patch | 帧号 | patch 行号 | patch 列号 | 编码 3D 时空位置 |
+
+> **统一公式同时表达 1D/2D/3D 位置**——文本 token 三段填同一个值，自然退化成 1D RoPE；视觉 token 三段填真实坐标，编码空间位置。**不需要为多模态单独设计 RoPE**。
+
+### partial_rotary_factor = 0.25：只对 25% 维度做旋转
+
+```python
+# Qwen3.5：256 维 head_dim 中只有 64 维做 RoPE
+# 剩下 192 维保持原样（不旋转）
+
+x_rot, x_pass = x[..., :64], x[..., 64:]   # 切两段
+x_rot = apply_rope(x_rot, freqs)            # 前 25% 旋转
+output = concat(x_rot, x_pass, dim=-1)      # 拼回去
+```
+
+> **为什么是 25%？** 经验值。RoPE 主要是给 attention 引入"位置差"信息，理论上全维度做也行，但 25% 节省 75% 位置编码计算（Qwen3.5 GDN 和 GA 头维都是 256），**质量没掉，速度白拿**。
+
+### interleaved 模式：不是简单"切 3 段"
+
+config 里 `mrope_interleaved: true`——意味着三段频率**不是按 dim 顺序排列**（[11 个 t, 11 个 h, 10 个 w]），而是**交织**：
+
+```
+默认（non-interleaved）：ttttttttttt hhhhhhhhhh wwwwwwwwww
+交织（interleaved）：   t h w t h w t h w t h w ...   （前 32 维）
+```
+
+> **工程意义**：交织后，每个"位置差异"维度上**同时编码 3 维信息**——更利于 attention 学到"图像 patch 在第 5 帧、第 3 行、第 7 列"这种复合位置关系。**视觉任务上比 non-interleaved 效果更好**。
 
 ## 创新点 5：（待补充）
 
