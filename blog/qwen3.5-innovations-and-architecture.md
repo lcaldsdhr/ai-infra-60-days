@@ -187,7 +187,81 @@ FLA 的官方实现：[flash-linear-attention](https://github.com/sustcsonglin/f
 
 > 一句话：MoE 用"工程复杂度"换"推理性价比"——总参数拉满知识，激活参数压低算量。
 
-## 创新点 3：（待补充）
+## 创新点 3：Early Fusion 原生多模态
+
+> 文本 / 图像 / 视频在**预训练阶段**就一起训，**没有外挂视觉适配器**。
+
+### 关键差异：原生 vs 后期添加
+
+| 维度 | **Qwen3-VL（后期融合）** | **Qwen3.5（原生融合）** |
+|------|------------------------|---------------------|
+| 视觉模块 | 训练完 LLM **再挂上** ViT + 投影层 | 预训练**一开始**就把视觉 token 和文本 token 混训 |
+| 视觉 token 注入点 | LLM 输入层做一次投影 | **贯穿整个 60 层**（每层 attention 都能看到视觉） |
+| 训练范式 | LLM 冻住 / LoRA 调视觉对齐 | **端到端**从头训 |
+| 视觉理解上限 | 受限于 LLM 冻结时的能力 | 跟 LLM 同步成长 |
+
+### Vision Encoder 配置（397B-A17B）
+
+> **数据来源**：HF config `Qwen/Qwen3.5-397B-A17B/config.json`（`vision_config` 字段）。本地存档：`docs/qwen3_5-mindsped-mm/config-397B.json`
+
+| 项 | 值 | config 字段 |
+|---|---|---|
+| 层数 | 27 | `vision_config.depth` |
+| Hidden | 1152 | `vision_config.hidden_size` |
+| Patch | 16×16 | `vision_config.patch_size` |
+| Spatial merge | 2×2 | `vision_config.spatial_merge_size` |
+| Temporal patch | 2（视频） | `vision_config.temporal_patch_size` |
+| 输出维度 | 4096（对齐 LLM hidden） | `vision_config.out_hidden_size` |
+| 视频 token id | 248057 | `video_token_id` |
+| 图像 token id | 248056 | `image_token_id` |
+
+> 关键点：`out_hidden_size = 4096`，**直接对齐 LLM 的 hidden_size**——这是原生融合的工程基础，视觉 patch 投影后**形状直接 = 文本 token**，可以无障碍混进 LLM 60 层。
+
+### mRoPE 多模态位置编码
+
+视觉 token 也用 mRoPE（不是 1D RoPE），三段切片：
+
+- `temporal: 11 维`（视频时间轴）
+- `height:  11 维`（图像高度）
+- `width:   10 维`（图像宽度）
+
+> 文本 token 三段都填同一个位置（伪 1D），视觉 token 三段填实际坐标——**统一公式同时表达 1D/2D/3D 位置**。
+
+### 端到端数据流：从一张图到 LLM 第 60 层
+
+一张 224×224 图走完整个 pipeline（token 数随分辨率变，下面以 224×224 为例）：
+
+| 步骤 | 转换 | 形状 |
+|---|---|---|
+| 1. 原始图像 | — | 224×224×3 |
+| 2. Patch 切分（patch_size=16） | 224/16 = 14 → 14×14 | 196 个 768 维 patch |
+| 3. Vision Transformer（27 层） | patch → 1152 维特征 | 196 × 1152 |
+| 4. Spatial merge（merge=2） | 2×2 邻接 patch 合成一个 token | 49 × 1152 |
+| 5. 投影层（1152 → 4096） | 单层 linear，对齐 LLM hidden | 49 × **4096** ← 形状 = 文本 token |
+| 6. 拼接文本 token | 49 视觉 + N 文本 | (49+N) × 4096 |
+| 7. mRoPE 位置编码 | 视觉填 3D 坐标 / 文本填伪 1D | (49+N) × 4096 |
+| 8. Embedding → Layer 0..59 | 3 GDN + 1 GA 走 15 轮 | (49+N) × 4096 |
+| 9. Layer 59 → LM Head | 投影到 vocab | (49+N) × 248320 |
+
+> **关键观察 1**：第 5 步 `out_hidden_size = 4096` 跟 LLM `hidden_size = 4096` 完全相等——这是**单层 linear 投影**敢用的前提。视觉 patch 投影后**形状直接 = 文本 token**，无缝混进 LLM。
+>
+> **关键观察 2**：第 8 步——**每层 GDN/GA 都能 attend 到这 49 个视觉 token**。Qwen3.5 的 3:1 混合对视觉和文本**一视同仁**，没有"视觉层"概念。
+>
+> **关键观察 3**：49 这个数字 = (224/16/2)² = 7²。分辨率变了 token 数会变：448×448 = 196，896×896 = 784。视觉 token 数随输入大小自适应。
+
+### 跟"挂个 ViT"的具体差别
+
+| 维度 | **挂个 ViT**（Qwen3-VL 风格） | **Qwen3.5 原生融合** |
+|------|------|------|
+| 投影层 | 复杂 adapter（多层 MLP + 交叉注意力） | 单层 linear（1152→4096） |
+| 视觉 token 数 | 多（196 个不 merge） | 少（49 个，靠 spatial merge 压缩） |
+| LLM 权重调整 | 只调 adapter，LLM 冻结 | LLM 60 层权重**都改** |
+| 视觉↔文本注意力 | 局部（adapter 内部） | 全局（每层都能） |
+| 训练范式 | LLM 训完 → 挂 ViT → adapter 对齐 | ViT 和 LLM **一起从头训** |
+| 信息流方向 | 视觉 → LLM（单向） | **双向**（视觉 token 也参与反向梯度） |
+| 训练数据规模 | 图文对（百万级） | 图文/视频/交错混合（万亿级 token） |
+
+> **核心区别一句话**：Qwen3.5 敢用 27 层 ViT + 简单投影 + 49 个 token 走 60 层 LLM，**前提是 LLM 权重在训练中被调过**——视觉信息不是"翻译"给 LLM 的，是 LLM **学会了怎么读**这些视觉 token。
 
 ## 创新点 4：（待补充）
 
