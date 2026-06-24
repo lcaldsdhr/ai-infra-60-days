@@ -396,17 +396,129 @@ MTP 投机解码：1 步 → 1 token + K 个猜测
 
 ### 整体架构
 
-> *(待补充：60 层怎么排、3:1 比例怎么映射)*
+> **数据来源**：HF config `Qwen/Qwen3.5-397B-A17B/config.json`（`num_hidden_layers=60`、`full_attention_interval=4`、`layer_types` 数组）。本地存档：`docs/qwen3_5-mindsped-mm/config-397B.json`
+
+| 项 | 值 | 说明 |
+|---|---|---|
+| 总层数 | **60** | `num_hidden_layers` |
+| 分组 | 15 组 × 4 层 | 60 ÷ 4 = 15 |
+| 每组结构 | 3 × GDN + 1 × GA | 严格 3:1 比例，无例外 |
+| 排布模式 | 每组最后 1 层是 GA | `layer_types` 数组前 3 个 `linear_attention`、第 4 个 `full_attention`，循环 15 次 |
+
+**60 层完整排布**（从 config `layer_types` 数组直接读出，60 个值循环 15 轮）：
+
+| 组 | 层 0 | 层 1 | 层 2 | 层 3（GA） |
+|---|---|---|---|---|
+| 0  | GDN | GDN | GDN | **GA** |
+| 1  | GDN | GDN | GDN | **GA** |
+| 2  | GDN | GDN | GDN | **GA** |
+| 3  | GDN | GDN | GDN | **GA** |
+| 4  | GDN | GDN | GDN | **GA** |
+| 5  | GDN | GDN | GDN | **GA** |
+| 6  | GDN | GDN | GDN | **GA** |
+| 7  | GDN | GDN | GDN | **GA** |
+| 8  | GDN | GDN | GDN | **GA** |
+| 9  | GDN | GDN | GDN | **GA** |
+| 10 | GDN | GDN | GDN | **GA** |
+| 11 | GDN | GDN | GDN | **GA** |
+| 12 | GDN | GDN | GDN | **GA** |
+| 13 | GDN | GDN | GDN | **GA** |
+| 14 | GDN | GDN | GDN | **GA** |
+
+> **关键观察**：layer_types 数组**严格 3:1**——前 3 层 linear（GDN）、第 4 层 full（GA），**15 轮循环无任何例外**。最后一层（59）是 GA，意味着 GA 始终是每组的"收尾层"。
 
 ### 一个 Block 的内部结构
 
-> *(待补充：RMSNorm → Attention → FFN/MoE 的数据流)*
+> **数据来源**：`docs/qwen3_5-mindsped-mm/01-qwen3.5-architecture-overview.md` L362-378 + HF config 字段
+
+| 子层 | 维度 | 输入 → 输出 | 备注 |
+|---|---|---|---|
+| 1. RMSNorm | 4096 | (B, L, 4096) → (B, L, 4096) | `rms_norm_eps=1e-6` |
+| 2. Attention（GDN 或 GA） | 4096 | (B, L, 4096) → (B, L, 4096) | GDN=线性递推 / GA=标准 attention |
+| 3. Residual Add | — | x + attn(x) | Pre-Norm 范式 |
+| 4. RMSNorm | 4096 | 同上 | |
+| 5. **MoE**（397B）/ FFN（27B-Dense） | 4096 → 中间维 → 4096 | 见下表 | 397B=MoE / 27B=Dense FFN |
+| 6. Residual Add | — | x + ffn(x) | |
+
+> **关键范式**：**Pre-Norm**（先 norm 再 sub-layer，再 residual）—— 现代 Transformer 主流做法，比 Post-Norm 训练更稳定。
+
+#### MoE 子层细节（397B-A17B）
+
+| 步骤 | 维度变化 | 备注 |
+|---|---|---|
+| 1. Router | (B·L, 4096) → (B·L, 10) | Top-10 路由选择 |
+| 2. AllToAll | token 分散到对应 expert GPU | 通信瓶颈 |
+| 3. 10 routed experts 并行 | 10 × (B·L/512·10, 1024) | 每个 expert 中间维 1024 |
+| 4. 1 shared expert | (B·L, 1024) | 永远激活 |
+| 5. 加权合并 | → (B·L, 4096) | 路由权重加权 |
+| 6. AllToAll 回 | (B·L, 4096) | token 回到原 GPU |
+
+> **工程观察**：MoE 的 AllToAll 通信是**推理和训练的主要瓶颈**——4 个步骤里 2 个是通信（step 2 + 6），计算本身反而快。
+
+#### FFN 子层细节（27B-Dense，对比）
+
+```
+x (B, L, 5120) → linear → (B, L, 17408) → SiLU → linear → (B, L, 5120)
+                    ↑ gate                 ↑ 激活              ↑ down_proj
+                    ↑ 17408 = 5120 × 3.4（典型 SwiGLU 比例）
+```
+
+> **27B vs 397B 的 Block 差别**只有第 5 子层：27B = 标准 FFN（每个 token 走 1 个 FFN），397B = MoE（每个 token 走 10 routed + 1 shared = 11 个 expert 加权）。**前面 4 个子层（Norm + Attn + Residual ×2）完全相同**。
 
 ---
 
 ## 总结
 
-> *(待补充：一句话总结 Qwen3.5 的设计哲学)*
+### 一句话设计哲学
+
+> **Qwen3.5 = 用 5 个"以小博大"的工程创新，把"千亿参数 + 多模态 + 长上下文"塞进单卡可推理的预算里。**
+
+5 个创新**全部都是工程优化**——没有新理论、新架构，是 Qwen Team 把现有技术调到极致后的组合拳。
+
+### 5 大创新总览
+
+| # | 创新 | 核心数据 | 解决的痛点 | 工程代价 |
+|---|---|---|---|---|
+| 1 | **GDN** | 3:1 混合 / 8.6x 提速 | L² 复杂度长上下文慢 | 容量有限 + α 衰减 |
+| 2 | **极致稀疏 MoE** | 397B 总 / 17B 激活 / < 5% 激活率 | 大模型推理贵 | AllToAll 通信 + 路由抖动 |
+| 3 | **Early Fusion 原生多模态** | 27 层 ViT → 49 token → 60 层 LLM | 挂个 ViT 信息流单向 | 训练数据要万亿级图文视频 |
+| 4 | **mRoPE 3 维位置编码** | [11,11,10] 切片 / partial 0.25 | 多模态位置难统一 | 3 套频率要协调 |
+| 5 | **MTP 多 Token 预测** | K=1 头 / 复用主 embedding | 推理自回归慢 | 主 loss + 辅助 loss |
+
+### 5 个创新的"共同 DNA"
+
+| 共同点 | 体现 |
+|---|---|
+| **都以"小"搏"大"** | d² 装 L / 5% 激活率 / 49 token 走 60 层 / 25% 维度 RoPE / K=1 预测 |
+| **都是"复用已有"** | MoE 复用 GDN 的 hidden 维度 / Early Fusion 复用 mRoPE / MTP 复用主 embedding |
+| **都依赖"端到端训练"** | GDN 要学 α-β / MoE 要学路由 / Early Fusion 要 LLM 调权重 / mRoPE 要学 3 段频率 / MTP 要学辅助头 |
+| **都增加了"通信/调度"开销** | GDN 的递推 / MoE 的 AllToAll / Early Fusion 的视觉特征注入 / mRoPE 的多维位置 / MTP 的多 head |
+
+### 3 个"为什么 Qwen3.5 选了这个组合"
+
+| 为什么 | 答 |
+|--------|-----|
+| **为什么 GDN+GA 混合，不全用 GDN？** | **精度保证**——25% 的 GA 层抓 GDN 处理不好的复杂依赖（参考创新 1 Q&A） |
+| **为什么 MoE 这么稀疏（< 5%）？** | **推理成本**——千亿级知识容量配十亿级算量，部署成本降 60% |
+| **为什么 mRoPE 切片是 [11,11,10] 不是均分？** | **工程经验**——高度/宽度维更重要（编视觉空间），时间维次之（编视频时序），所以高度宽度多 1 维 |
+
+### 回到 Qwen3.5 的"3 个为什么"
+
+| 为什么 | 答 |
+|--------|-----|
+| **为什么用 GDN 替代大部分 attention？** | **长上下文效率**（O(L) vs O(L²)），8.6-19x 提速 |
+| **为什么混合 GDN+GA 不全用 GDN？** | **精度保证**（标准 attention 抓复杂依赖更强），3:1 平衡效率与质量 |
+| **为什么 MoE 这么稀疏？** | **推理成本**（17B 激活 vs 397B 总参数），部署成本降低 60% |
+
+### 推荐阅读路径
+
+- 想理解 **长上下文效率**：创新 1（GDN）
+- 想理解 **大模型推理降本**：创新 2（MoE）
+- 想理解 **多模态原理**：创新 3（Early Fusion）+ 创新 4（mRoPE）
+- 想理解 **推理加速**：创新 5（MTP）
+- 想理解 **整体结构**：网络结构 + 总结
+
+> 路径 2 博客《Qwen3.5 的创新和网络结构》完结。下一步推荐深入 GDN 源码（路径 2 文档 02）或者恢复路径 1 挂起的 AI Infra 60 天。
 
 ---
 
