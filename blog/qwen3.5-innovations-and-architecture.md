@@ -133,7 +133,59 @@ FLA 的官方实现：[flash-linear-attention](https://github.com/sustcsonglin/f
 
 ---
 
-## 创新点 2：（待补充）
+## 创新点 2：极致稀疏 MoE
+
+> 397B-A17B：397B 总参 / 17B 激活（< 5% 激活率）｜512 专家 / 10 routed + 1 shared / 中间维 1024
+
+### 一句话理解
+
+> **千亿级知识容量 + 十亿级推理成本**：参数大（397B 装得下 397B 份知识），算量小（每次只激活 17B）
+
+### 27B-Dense vs 397B-MoE 结构对比
+
+> **数据来源**：HF 模型 config（`Qwen/Qwen3.5-27B/config.json` + `Qwen/Qwen3.5-397B-A17B/config.json`）+ Qwen 官方发布博客。本地存档：`docs/qwen3_5-mindsped-mm/config-27B.json`、`config-397B.json`
+
+| 维度 | **27B-Dense** | **397B-A17B MoE** | **config 字段** |
+|------|---------------|-------------------|-----------------|
+| 总参 / 激活 | 27B / 27B | 397B / **17B** | Qwen 博客（"397B-A17B" 命名） |
+| 激活率 | 100% | **< 5%** | 17/397 ≈ 4.28% |
+| 层数 | **64** | **60** | `num_hidden_layers` |
+| Hidden Dim | **5120** | **4096** | `hidden_size` |
+| FFN/MoE 中间维 | **17408** | **1024**（×10 routed + ×1 shared） | `intermediate_size` / `moe_intermediate_size` + `shared_expert_intermediate_size` |
+| 专家数 | — | 512 / 10 routed + 1 shared | `num_experts` / `num_experts_per_tok` + `shared_expert_intermediate_size` |
+| 路由辅助损失 | — | 0.001 | `router_aux_loss_coef` |
+| Block 结构 | `Norm → Attn(GDN/GA) → Norm → FFN` | `Norm → Attn(GDN/GA) → Norm → MoE` | `docs/qwen3_5-mindsped-mm/01-...md` L362-378 |
+| 注意力 | 3 GDN + 1 GA（每 4 层） | 3 GDN + 1 GA（每 4 层） | `full_attention_interval: 4` + `layer_types` 数组 |
+| GDN V 头 | **48** | **64** | `linear_num_value_heads` |
+| GDN QK 头 | **16** | **16** | `linear_num_key_heads` |
+| GDN 头维（K） | 128 | 128 | `linear_key_head_dim` |
+| GDN 头维（V） | 128 | 128 | `linear_value_head_dim` |
+| GA Q 头 | **24** | **32** | `num_attention_heads` |
+| GA KV 头（GQA） | **4** | **2** | `num_key_value_heads` |
+| 头维 | 256 | 256 | `head_dim` |
+| Rotary 维 / 比例 | partial 0.25 / mRoPE [11,11,10] | partial 0.25 / mRoPE [11,11,10] | `rope_parameters.partial_rotary_factor` / `mrope_section` |
+| 上下文 | 262144 原生 + 1M 扩展 | 262144 原生 + 1M 扩展 | `max_position_embeddings: 262144`（1M 扩展用 YaRN） |
+| 词表 | 248320 | 248320 | `vocab_size` |
+
+### 两个关键差异的"为什么"
+
+**1. 为什么 Dense 可以 64 层、MoE 只用 60 层？**
+> MoE 每层参数更多（512 专家装在 FFN 位），深度可以减少。同时 60 层 = 15 组 × 4 层，正好对齐 GDN+GA 的 3:1 比例。
+
+**2. 为什么 MoE 的 hidden dim 反而小（4096 vs 5120）？**
+> MoE 的"知识容量"在专家里（专家数 × 中间维），不在 hidden dim。所以 hidden dim 可以小、专家可以多。
+> 27B-Dense 的知识全压在一个大 FFN（中间维 17408）里，hidden dim 必须大才能装下。
+> 一个粗略估算：397B-MoE 的"等效知识"≈ 512 专家 × 1024 中间维 ≈ 50 万维的张量场；27B-Dense 靠 64 层 × 17408 中间维 ≈ 110 万维——**MoE 用"横向并列"换"纵向堆叠"**。
+
+### 三个工程上的取舍
+
+| 取舍点 | 27B-Dense | 397B-A17B MoE |
+|--------|-----------|----------------|
+| **训练** | 简单，标准 DP+TP+PP | 需专家并行（EP）+ 负载均衡损失 |
+| **推理** | 简单，所有参数都跑 | 需 AllToAll 通信，路由抖动要处理 |
+| **部署** | 27B 一张/几张卡就行 | 397B 必须多机多卡，激活 17B 也要大显存 |
+
+> 一句话：MoE 用"工程复杂度"换"推理性价比"——总参数拉满知识，激活参数压低算量。
 
 ## 创新点 3：（待补充）
 
