@@ -1,8 +1,20 @@
 # Qwen3.5 的创新和网络结构
 
-> 一篇系统梳理 Qwen3.5 核心创新与网络结构的博客
+> **本篇是总览 + 速查表**。要深入理解 GDN 请看 [博客 1《GDN 深度：从 Mamba 2 到 GDN》](gdn-deep-dive.md)；要看其余 4 个创新的详细数据请看 [博客 2《Qwen3.5 其余创新》](qwen3.5-remaining-innovations.md)。
 
 ---
+
+## TL;DR
+
+5 大创新速查：
+
+| # | 创新 | 核心数据 | 详见 |
+|---|------|---------|------|
+| 1 | **GDN** | 3:1 混合 / 8.6x 提速 / d² 替代 L² | [博客 1 § 6](gdn-deep-dive.md) |
+| 2 | **极致稀疏 MoE** | 397B 总 / 17B 激活 / < 5% 激活率 | [博客 2 § 2](qwen3.5-remaining-innovations.md) |
+| 3 | **Early Fusion 原生多模态** | 27 层 ViT → 49 token → 60 层 LLM | [博客 2 § 3](qwen3.5-remaining-innovations.md) |
+| 4 | **mRoPE 3 维位置编码** | [11,11,10] 切片 / partial 0.25 | [博客 2 § 4](qwen3.5-remaining-innovations.md) |
+| 5 | **MTP 多 Token 预测** | K=1 头 / 复用主 embedding | [博客 2 § 5](qwen3.5-remaining-innovations.md) |
 
 ## 简介
 
