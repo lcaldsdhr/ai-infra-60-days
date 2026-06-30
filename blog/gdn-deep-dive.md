@@ -7,7 +7,7 @@
 
 ---
 
-## TL;DR
+## 速览
 
 **GDN = Mamba 2 门控 + Delta Rule**
 
