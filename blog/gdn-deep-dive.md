@@ -376,6 +376,120 @@ Qwen Team 调出来的**效率-精度 sweet spot**：
 | 增量更新 | 每次 1 token 算 d² = 16M FLOPs（常数）|
 | 查表 | 每次 1 token 算 L·d² = 512M FLOPs（线性）|
 
+### 6.6 非对称 QKV 设计：借鉴 GQA 但更激进
+
+#### 6.6.1 数字对比
+
+Qwen3.5 GDN 的实际配置（来自 [Qwen3_5GatedDeltaNet](file:///c:/Users/Administrator/Desktop/code/0611/MindSpeed-MM/mindspeed_mm/fsdp/models/qwen3_5/modeling_qwen3_5.py#L519-L529)）：
+
+```python
+linear_num_value_heads = 64    # V 头：64 个（满）
+linear_num_key_heads   = 16    # K 头：16 个（压缩 4×）
+head_k_dim = 128
+head_v_dim = 128
+
+key_dim   = 16 × 128 = 2048
+value_dim = 64 × 128 = 8192
+conv_dim  = 2*K + V = 12288   # Conv1d 输入维度
+```
+
+Q 与 K 共用 `key_dim`，所以 **Q : K : V = 1 : 1 : 4**。
+
+| 模型 | Q 头 | K 头 | V 头 | 比值 |
+|---|---|---|---|---|
+| **MHA**（标准 Attention） | 64 | 64 | 64 | 1:1:1 |
+| **GQA**（Attention） | 64 | 4 | 4 | 16:1:1 |
+| **GDN**（Qwen3.5） | 16 | 16 | 64 | **1:1:4** |
+
+**GQA 只压缩 KV、保留 Q**；**GDN 反过来——保留 V、压缩 QK**。
+
+#### 6.6.2 为什么这样设计（4 大动机）
+
+**动机 1：减小 in_proj_qkv 的权重**
+
+```python
+self.in_proj_qkv = nn.Linear(hidden_size, 2*K + V)
+# Qwen3.5:  Linear(5120, 12288)  ← 当前
+# 对称设计:  Linear(5120, 24576)  ← 2 倍
+```
+
+非对称设计让 QKV 投影的权重参数和 FLOPs **减半**。
+
+**动机 2：减小 Conv1d 的计算量**
+
+```python
+self.conv1d = nn.Conv1d(conv_dim, conv_dim, kernel_size=4, groups=conv_dim)
+```
+
+`groups=conv_dim` 是 depthwise conv，每个通道独立：
+- 对称：24576 通道 × 4 kernel = 98304 次乘
+- 非对称：**12288 通道 × 4 kernel = 49152 次乘**（**减半**）
+
+**动机 3：减小 Recurrent State 显存**
+
+GDN 的核心状态 S 形状 `[v_heads, head_k_dim, head_v_dim]`：
+- 64 层 × 64 V 头 × 128 × 128 × 2B = **128 MB / 每 sequence**
+- 推理时这个 state 必须常驻每层
+- 压缩 K 头 → K⊗V 的外积被 4 个 V 头共享，**state 更新计算量降为 1/4**
+
+**动机 4：保持 V 的表达能力（最关键）**
+
+```
+V 头 = "内容载体"，每个头负责一类语义信息
+压缩 V → 损害模型能力
+压缩 K → K 只参与"查表"（外积键），影响小
+压缩 Q → Q 只参与"读状态"（query），影响小
+```
+
+V 必须满血，因为：
+- 状态 S 的"列"维度 = head_v_dim，**V 决定状态能存什么**
+- 输出 `o = q · S` 矩阵乘，V 维度直接决定输出丰富度
+- 16 个 V 头 vs 64 个 V 头，模型质量肉眼可见下降
+
+#### 6.6.3 压缩 QK 的实际影响
+
+**正向收益**：
+- ✅ in_proj_qkv 权重减半（5120×12288 vs 5120×24576）
+- ✅ Conv1d 计算减半
+- ✅ K^T·V 矩阵乘的 K 维度从 8192→2048（chunk 内矩阵乘块计算量降为 1/4）
+- ✅ Recurrent state 更新量减少
+
+**潜在代价**：
+- ⚠️ 同一组的 4 个 V 头共享 K，**键空间冲突**（不同内容可能算出相似的 K）
+- ⚠️ 这就是为什么 Q 也不全压（保留 16 个独立 K），而是用 4:1 平衡
+
+#### 6.6.4 与 Attention GQA 的关键差异
+
+```
+GQA 设计哲学（Attention）：
+  "Q 头各管各的，K/V 共享节省 KV cache"
+  → 节省的是推理时的 KV cache（cache 大小 ∝ seq_len）
+
+GDN 非对称设计哲学（Linear Attention）：
+  "V 头各管各的，Q/K 共享节省权重和计算"
+  → 节省的是权重参数量和 forward FLOPs（不随 seq_len 变）
+```
+
+- **Attention 的痛点**是 KV cache 随 seq_len 线性增长（生成 128K token 时 KV cache 巨大）
+- **Linear Attention 的痛点**是 in_proj_qkv 权重 + state 更新（不随 seq_len 变，但权重常驻）
+
+所以 GDN 把优化点放在了**权重侧**而非 cache 侧。
+
+#### 6.6.5 与其他 Linear Attention 模型对比
+
+| 模型 | Q 头 | K 头 | V 头 | 非对称? |
+|---|---|---|---|---|
+| **Mamba 2** | 80 | 80 | 80 | 对称 |
+| **Gated DeltaNet（基线）** | 16 | 16 | 32 | 2:1 |
+| **Qwen3.5 GDN** | 16 | 16 | 64 | **4:1（最激进）** |
+| **Jamba / RWKV** | — | — | — | 不同方案 |
+
+Qwen3.5 的 4:1 在同类 linear attention 中是**最激进的非对称设计**。
+
+#### 6.6.6 一句话总结
+
+> Qwen3.5 GDN 的"4:1 非对称 QKV"是 **GQA 思想在 Linear Attention 上的变体**——保留 V 头（内容表达）而压缩 Q/K 头（键空间共享），省的是 in_proj_qkv 权重、Conv1d 计算和 state 更新代价，本质是用"V 满血"换"K 共享"的内存-表达权衡。
+
 ---
 
 ## 第 7 章：FLA 优化
