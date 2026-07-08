@@ -23,7 +23,7 @@ from datasets import load_dataset
 # 第 1 步：加载数据（15 min）
 # ============================================================
 
-raw = load_dataset("glue", "sst2")
+raw = load_dataset("nyu-mll/glue", "sst2")
 
 print(raw)
 # 预期输出：
