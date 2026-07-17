@@ -1,4 +1,4 @@
-# 加餐：Megatron Buffer 与 PyTorch FSDP2 DTensor 的参数管理
+# Megatron Buffer 与 PyTorch FSDP2 DTensor 的参数管理
 
 > **目标**：从“一个参数在显存里以什么形态存在、何时完整、谁负责更新”理解 Megatron 与 FSDP2 的架构差异。本文的 Megatron 指 **Megatron Core 经典 DDP + Distributed Optimizer** 路径；它与较新的 **Pttorch-FSDP** 是两条不同实现，不能混为一谈。
 
