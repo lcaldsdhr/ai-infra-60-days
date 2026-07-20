@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="820" viewBox="0 0 1440 820" role="img" aria-labelledby="title desc">
+  <title id="title">TP、FSDP、PP 与 EP 的通信域</title>
+  <desc id="desc">左侧展示两个副本中同一 TP 坐标构成独立 FSDP shard group；右侧展示 hybrid sharding 的 replicate 和 shard mesh，以及 PP 和 EP 使用的不同通信域。</desc>
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 18; }
+      .node { fill: #eff6ff; stroke: #2563eb; stroke-width: 2; rx: 10; }
+      .gpu { fill: #dbeafe; stroke: #2563eb; stroke-width: 2; rx: 8; }
+      .mesh { fill: #f0fdf4; stroke: #16a34a; stroke-width: 2; rx: 8; }
+      .ep { fill: #fff7ed; stroke: #ea580c; stroke-width: 2; rx: 8; }
+      .pp { fill: #fdf4ff; stroke: #a855f7; stroke-width: 2; rx: 10; }
+      .t { font-family: Arial, 'Microsoft YaHei', sans-serif; fill: #0f172a; }
+      .title { font-size: 30px; font-weight: 700; }
+      .sub { font-size: 21px; font-weight: 700; }
+      .label { font-size: 18px; }
+      .small { font-size: 15px; fill: #334155; }
+      .arrow-blue { stroke: #2563eb; stroke-width: 4; fill: none; marker-end: url(#arrowBlue); }
+      .arrow-green { stroke: #16a34a; stroke-width: 4; fill: none; marker-end: url(#arrowGreen); }
+      .arrow-orange { stroke: #ea580c; stroke-width: 4; fill: none; marker-end: url(#arrowOrange); }
+      .arrow-purple { stroke: #a855f7; stroke-width: 4; fill: none; marker-end: url(#arrowPurple); }
+      .dash { stroke-dasharray: 10 8; }
+    </style>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#2563eb"/></marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#16a34a"/></marker>
+    <marker id="arrowOrange" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ea580c"/></marker>
+    <marker id="arrowPurple" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#a855f7"/></marker>
+  </defs>
+  <rect class="bg" width="1440" height="820"/>
+  <text class="t title" x="60" y="58">组合并行中：先明确张量布局，再明确通信 group</text>
+
+  <rect class="panel" x="50" y="90" width="810" height="500"/>
+  <text class="t sub" x="80" y="130">A. TP 节点内，FSDP shard 沿“同一 TP 坐标的副本”通信</text>
+  <text class="t small" x="80" y="158">示例：TP=4；每条蓝色连线是一个独立的 shard group（AG / RS），而不是 world group。</text>
+
+  <rect class="node" x="95" y="205" width="300" height="245"/>
+  <text class="t sub" x="115" y="240">副本 / 节点 A</text>
+  <rect class="node" x="515" y="205" width="300" height="245"/>
+  <text class="t sub" x="535" y="240">副本 / 节点 B</text>
+  <text class="t small" x="135" y="275">TP group（节点内）</text>
+  <text class="t small" x="555" y="275">TP group（节点内）</text>
+  <g class="t label" text-anchor="middle">
+    <rect class="gpu" x="120" y="300" width="55" height="72"/><text x="147" y="330">TP0</text><text class="small" x="147" y="353">rank 0</text>
+    <rect class="gpu" x="190" y="300" width="55" height="72"/><text x="217" y="330">TP1</text><text class="small" x="217" y="353">rank 1</text>
+    <rect class="gpu" x="260" y="300" width="55" height="72"/><text x="287" y="330">TP2</text><text class="small" x="287" y="353">rank 2</text>
+    <rect class="gpu" x="330" y="300" width="55" height="72"/><text x="357" y="330">TP3</text><text class="small" x="357" y="353">rank 3</text>
+    <rect class="gpu" x="540" y="300" width="55" height="72"/><text x="567" y="330">TP0</text><text class="small" x="567" y="353">rank 4</text>
+    <rect class="gpu" x="610" y="300" width="55" height="72"/><text x="637" y="330">TP1</text><text class="small" x="637" y="353">rank 5</text>
+    <rect class="gpu" x="680" y="300" width="55" height="72"/><text x="707" y="330">TP2</text><text class="small" x="707" y="353">rank 6</text>
+    <rect class="gpu" x="750" y="300" width="55" height="72"/><text x="777" y="330">TP3</text><text class="small" x="777" y="353">rank 7</text>
+  </g>
+  <path class="arrow-blue" d="M175 325 C290 260, 425 260, 540 325"/>
+  <path class="arrow-blue" d="M245 340 C365 400, 480 400, 610 340"/>
+  <path class="arrow-blue" d="M315 325 C420 260, 560 260, 680 325"/>
+  <path class="arrow-blue" d="M385 340 C505 400, 625 400, 750 340"/>
+  <text class="t small" x="330" y="488" fill="#1d4ed8">同一 TP 坐标的 FSDP group：{A.TP0, B.TP0}、{A.TP1, B.TP1} …</text>
+  <text class="t small" x="250" y="522">TP collective 只在每个节点内的横向 group 执行；FSDP 的 AG / RS 只在蓝色纵向 group 执行。</text>
+
+  <rect class="panel" x="895" y="90" width="495" height="500"/>
+  <text class="t sub" x="925" y="130">B. hybrid sharding 与其它轴</text>
+  <text class="t small" x="925" y="158">逻辑 mesh 的维度有明确角色；物理映射取决于拓扑。</text>
+  <text class="t label" x="930" y="205">固定一个 TP 坐标后的 FSDP 2D mesh</text>
+  <rect class="mesh" x="950" y="230" width="105" height="60"/><text class="t label" x="972" y="265">R0,S0</text>
+  <rect class="mesh" x="1065" y="230" width="105" height="60"/><text class="t label" x="1087" y="265">R0,S1</text>
+  <rect class="mesh" x="950" y="300" width="105" height="60"/><text class="t label" x="972" y="335">R1,S0</text>
+  <rect class="mesh" x="1065" y="300" width="105" height="60"/><text class="t label" x="1087" y="335">R1,S1</text>
+  <path class="arrow-green" d="M1045 260 L1060 260"/><path class="arrow-green" d="M1045 330 L1060 330"/>
+  <path class="arrow-blue" d="M1002 292 L1002 298"/><path class="arrow-blue" d="M1117 292 L1117 298"/>
+  <text class="t small" x="1190" y="267" fill="#15803d">shard axis:</text><text class="t small" x="1190" y="287">参数 AG / 梯度 RS</text>
+  <text class="t small" x="1190" y="335" fill="#1d4ed8">replicate axis:</text><text class="t small" x="1190" y="355">梯度同步（AR）</text>
+
+  <rect class="pp" x="930" y="410" width="160" height="62"/><text class="t label" x="960" y="447">PP stage i</text>
+  <rect class="pp" x="1190" y="410" width="160" height="62"/><text class="t label" x="1210" y="447">PP stage i+1</text>
+  <path class="arrow-purple" d="M1095 440 L1185 440"/><text class="t small" x="1104" y="425">activation P2P</text>
+  <rect class="ep" x="1035" y="505" width="200" height="48"/><text class="t label" x="1065" y="536">EP group: All-to-All</text>
+  <text class="t small" x="930" y="580">同一 rank 可属于多个 group；不要把不同轴的 collective 意外扩大到 world group。</text>
+
+  <rect class="panel" x="50" y="625" width="1340" height="145"/>
+  <text class="t sub" x="80" y="665">读图检查表</text>
+  <text class="t label" x="80" y="705">1. 这次 collective 覆盖哪个 axis？</text>
+  <text class="t label" x="445" y="705">2. 调用前后张量是 replicated、sharded 还是 routed？</text>
+  <text class="t label" x="980" y="705">3. 此通信是否跨越了不该参与的 rank？</text>
+  <text class="t small" x="80" y="744">只有这三项都明确，才能讨论 AG / RS 预取、PP bubble、EP 尾延迟，以及节点内外拓扑放置。</text>
+</svg>
