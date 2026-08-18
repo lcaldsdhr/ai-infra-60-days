@@ -11,12 +11,13 @@
 
 ## 📖 项目简介
 
-本仓库记录一份 **60 天 AI Infra（框架 + 算法）系统学习计划** 的全过程：
+本仓库记录一份 **60 天 AI Infra（框架 + 算法）系统学习计划** 的全过程，并提供可复用的 Agent 协作与课程记录模板：
 
 - 📚 **理论常识**：AI Infra 全景、5D 并行、混合精度、KV Cache、量化、PEFT、推理引擎…
 - 🛠 **工程实践**：基于 PyTorch / DeepSpeed / Megatron / vLLM 等真实代码的实操
 - ✍️ **手写代码**：25 道高频面试手写题（Ring-AllReduce、AdamW、ColumnParallelLinear、RMSNorm…）
 - 🎯 **面试导向**：覆盖跳槽中常见的工程实现题与系统设计题
+- 🧭 **RL / verl 学习线**：以固定版本的 verl 源码为锚点，记录从算法到训练基础设施的阅读与实验
 
 **学习范围**：AI Infra 全栈（**不含算子开发**，算子有独立学习线）
 
@@ -46,6 +47,8 @@ ai-infra-60-days/
 ├── .gitignore                                 ← Python 标准忽略规则
 │
 ├── docs/
+│   ├── templates/                             ← 可复用课程与 Agent 协作模板
+│   ├── verl/                                  ← verl / RL 学习线与源码版本说明
 │   ├── 60-day-plan/                           ← 60 天完整学习计划
 │   │   ├── README.md
 │   │   ├── 01-phase1-基础与单卡深度.md
@@ -62,13 +65,16 @@ ai-infra-60-days/
 │       ├── day-03-04-xxx.md
 │       └── ...
 │
-└── code/                                      ← 学习过程中的所有代码
+├── code/                                      ← 学习过程中的所有代码
     ├── README.md
     ├── phase1/                                ← Phase 1 单卡训练代码
     ├── phase2/                                ← Phase 2 分布式实现
     ├── phase3/
     ├── phase4/
     └── phase5/
+│
+└── third_party/
+    └── verl/                                  ← 固定 commit 的 Git submodule
 ```
 
 ---
@@ -88,6 +94,7 @@ ai-infra-60-days/
 | **量化** | INT8 / INT4 / GPTQ / AWQ / SmoothQuant |
 | **PEFT** | LoRA / QLoRA / Adapter / Prefix-Tuning |
 | **服务化** | Triton Inference Server / gRPC / Streaming Response |
+| **RL 训练基础设施** | PPO / GRPO 数据流 / Rollout / Reward / verl |
 | **手写代码** | Ring-AllReduce / AdamW / ColumnParallelLinear / RMSNorm / KV Cache 增量解码 … |
 
 ### ❌ 不包含
@@ -196,6 +203,7 @@ git push
 - [DeepSpeed 文档](https://www.deepspeed.ai/)
 - [Megatron-LM](https://github.com/NVIDIA/Megatron-LM)
 - [vLLM](https://github.com/vllm-project/vllm)
+- [verl / RL 学习线](docs/verl/README.md) — 固定版本源码、学习顺序与更新流程
 
 ---
 
