@@ -7,3 +7,7 @@
 - 分布式训练、checkpoint、容错与可观测性的工程复盘。
 
 文章应在开头记录适用的 `verl@commit` 与相关实验或源码链接。
+
+## 已收录
+
+- [Verl 训练生命周期：从 DataProto 到 rollout 与 actor 更新](verl-training-lifecycle.md)
