@@ -24,6 +24,17 @@ git submodule update --init RL_go/verl
 4. 对照分布式训练、checkpoint、容错和指标记录实现。
 5. 为每个主题按 [课程笔记模板](../../templates/learning-and-agent/lesson-template.md) 记录可复现命令和结论。
 
+## 算法专题
+
+建议按“组内相对优势 → 稳定性与长度偏差 → 自博弈 → Agent 长程信用分配”的顺序阅读：
+
+| 主题 | 学习重点 | 文档 |
+| --- | --- | --- |
+| GRPO | 去掉 critic 的组相对优势估计、KL 约束与采样组设计 | [grpo.md](grpo.md) |
+| DAPO | 面向长链推理的裁剪、动态采样和长度偏差治理 | [dapo.md](dapo.md) |
+| SPIN | 自博弈式偏好优化；先确认所采用的 SPIN 论文定义 | [spin.md](spin.md) |
+| Agentic RL | 将工具调用、多步轨迹、环境反馈和信用分配纳入 RL 循环 | [agentic-rl.md](agentic-rl.md) |
+
 ## 版本更新流程
 
 1. 记录要升级到的 `verl@commit` 与原因。
