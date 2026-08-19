@@ -1,6 +1,6 @@
 # Verl 训练生命周期：从 DataProto 到 rollout、优势与 actor 更新
 
-> 适用源码：[`verl@c4b389ad`](https://github.com/volcengine/verl/tree/c4b389adadc58ce51cb2b63e70df497ca166d77f)  
+> 适用源码：[`verl@c4b389ad`](https://github.com/volcengine/verl/tree/c4b389adadc58ce51cb2b63e70df497ca166d77f)<br>
 > 阅读目标：把一次 RL 训练 step 看成一条带版本、带批次契约的状态机，而不是一串松散的 API 调用。
 
 ## 先校正术语：不是当前版本的 `sharing_manager`
