@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="700" viewBox="0 0 1500 700" role="img" aria-labelledby="title desc">
+  <title id="title">DataProto 的三层批次契约与字段演进</title>
+  <desc id="desc">展示 DataProto 的 tensor、非 tensor 和元数据三层，以及 select、repeat、union 和 reorder 对 batch 的影响。</desc>
+  <defs>
+    <style>
+      .bg{fill:#fbf7ef}.paper{fill:#fffdf8}.ink{stroke:#102f61;stroke-width:4;fill:none;stroke-linejoin:round;stroke-linecap:round}.thin{stroke:#102f61;stroke-width:2.5;fill:none;stroke-linejoin:round;stroke-linecap:round}.dash{stroke-dasharray:8 9}.teal{fill:#64bdb5}.blue{fill:#b8cde2}.coral{fill:#ef7f64}.gold{fill:#f4dc88}.soft{fill:#e8f0ed}text{font-family:"Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#102f61}.h{font-size:34px;font-weight:700}.sub{font-size:18px;fill:#557093}.label{font-size:24px;font-weight:700}.item{font-size:18px}.small{font-size:16px;fill:#557093}.op{font-size:20px;font-weight:700;text-anchor:middle}.num{font-size:23px;font-weight:700;text-anchor:middle;dominant-baseline:central}
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#102f61"/></marker>
+  </defs>
+  <rect class="bg" width="1500" height="700" rx="28"/>
+  <text class="h" x="72" y="70">DataProto：一只带三层托运单的 batch 周转箱</text>
+  <text class="sub" x="72" y="101">每一层都必须跟随样本的复制、筛选、合并和重排一起更新</text>
+  <rect class="paper ink" x="72" y="150" width="620" height="380" rx="22"/>
+  <path class="thin dash" d="M100 233H665M100 340H665M100 447H665"/>
+  <rect class="teal" x="104" y="176" width="12" height="35" rx="5"/><text class="label" x="133" y="202">batch（TensorDict）</text><text class="small" x="436" y="202">第 0 维必须一致</text>
+  <rect class="soft" x="122" y="252" width="160" height="53" rx="10"/><text class="item" x="143" y="285">input_ids</text>
+  <rect class="soft" x="302" y="252" width="160" height="53" rx="10"/><text class="item" x="323" y="285">responses</text>
+  <rect class="soft" x="482" y="252" width="160" height="53" rx="10"/><text class="item" x="503" y="285">old_log_probs</text>
+  <rect class="blue" x="104" y="352" width="12" height="35" rx="5"/><text class="label" x="133" y="378">non_tensor_batch</text><text class="small" x="468" y="378">仍需按样本严格对齐</text>
+  <rect class="paper thin" x="122" y="405" width="160" height="28" rx="8"/><text class="item" x="143" y="426">uid</text>
+  <rect class="paper thin" x="302" y="405" width="160" height="28" rx="8"/><text class="item" x="323" y="426">raw_prompt</text>
+  <rect class="paper thin" x="482" y="405" width="160" height="28" rx="8"/><text class="item" x="503" y="426">tool_trace</text>
+  <rect class="coral" x="104" y="459" width="12" height="35" rx="5"/><text class="label" x="133" y="485">meta_info</text><text class="small" x="430" y="485">批次级控制和版本标签</text>
+  <text class="item" x="123" y="516">temperature · rollout_version · sampling_params</text>
+  <path class="ink" d="M720 340H800" marker-end="url(#arrow)"/>
+  <text class="small" x="740" y="318">字段操作</text>
+  <rect class="paper ink" x="828" y="150" width="580" height="380" rx="22"/>
+  <circle class="gold thin" cx="882" cy="208" r="25"/><text class="num" x="882" y="208">1</text><text class="op" x="1003" y="216">select</text><text class="small" x="1170" y="215">取下游需要的字段</text>
+  <path class="thin" d="M864 251H1368"/>
+  <circle class="gold thin" cx="882" cy="296" r="25"/><text class="num" x="882" y="296">2</text><text class="op" x="1003" y="304">repeat</text><text class="small" x="1170" y="303">一个 prompt 扩成 N 条 rollout</text>
+  <path class="thin" d="M864 339H1368"/>
+  <circle class="gold thin" cx="882" cy="384" r="25"/><text class="num" x="882" y="384">3</text><text class="op" x="1003" y="392">union</text><text class="small" x="1170" y="391">把 response / reward 合回箱子</text>
+  <path class="thin" d="M864 427H1368"/>
+  <circle class="gold thin" cx="882" cy="472" r="25"/><text class="num" x="882" y="472">4</text><text class="op" x="1003" y="480">reorder</text><text class="small" x="1170" y="479">恢复异步返回后的样本顺序</text>
+  <rect class="paper thin" x="72" y="570" width="1336" height="77" rx="18"/>
+  <circle class="coral" cx="113" cy="608" r="11"/><text class="label" x="140" y="615">不变量</text><text class="item" x="270" y="615">同一个 `uid` 的 token、response、reward、advantage 与版本信息必须始终指向同一样本。</text>
+</svg>

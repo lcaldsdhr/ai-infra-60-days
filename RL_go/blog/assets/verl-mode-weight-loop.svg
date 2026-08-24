@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="700" viewBox="0 0 1500 700" role="img" aria-labelledby="title desc">
+  <title id="title">Verl 中 rollout 推理态与 actor 训练态的权重回流</title>
+  <desc id="desc">展示 actor 权重 v17 在 eval mode 下生成 rollout，经奖励和优势计算后在 train mode 更新为 v18，并被下一轮 rollout 使用。</desc>
+  <defs>
+    <style>
+      .bg{fill:#fbf7ef}.paper{fill:#fffdf8}.ink{stroke:#102f61;stroke-width:4;fill:none;stroke-linejoin:round;stroke-linecap:round}.thin{stroke:#102f61;stroke-width:2.5;fill:none;stroke-linejoin:round;stroke-linecap:round}.dash{stroke-dasharray:8 9}.teal{fill:#64bdb5}.blue{fill:#b8cde2}.coral{fill:#ef7f64}.gold{fill:#f4dc88}.muted{fill:#e8f0ed}text{font-family:"Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#102f61}.h{font-size:34px;font-weight:700}.sub{font-size:18px;fill:#557093}.label{font-size:25px;font-weight:700;text-anchor:middle}.small{font-size:17px;text-anchor:middle;fill:#557093}.chip{font-size:18px;font-weight:700;text-anchor:middle}.note{font-size:18px}.num{font-size:23px;font-weight:700;text-anchor:middle;dominant-baseline:central}
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#102f61"/></marker>
+  </defs>
+  <rect class="bg" width="1500" height="700" rx="28"/>
+  <text class="h" x="72" y="70">同一个 actor 的两种职责：先答题，再练习</text>
+  <text class="sub" x="72" y="101">重点不是手工切 `model.train()`，而是通过 engine 上下文让状态与资源策略可控</text>
+  <circle class="gold thin" cx="170" cy="179" r="26"/><text class="num" x="170" y="179">1</text>
+  <rect class="paper ink" x="78" y="225" width="250" height="235" rx="22"/>
+  <rect class="teal" x="106" y="249" width="194" height="41" rx="12"/><text class="chip" x="203" y="276">eval_mode / serving</text>
+  <path class="thin" d="M122 330H284M122 370H246M122 410H267"/>
+  <text class="label" x="203" y="497">Rollout</text><text class="small" x="203" y="525">权重 v17 生成回答</text>
+  <path class="ink" d="M350 342H505" marker-end="url(#arrow)"/>
+  <text class="small" x="428" y="320">responses + log-probs</text>
+  <circle class="gold thin" cx="610" cy="179" r="26"/><text class="num" x="610" y="179">2</text>
+  <rect class="paper ink" x="518" y="225" width="250" height="235" rx="22"/>
+  <rect class="blue" x="546" y="249" width="194" height="41" rx="12"/><text class="chip" x="643" y="276">reward / advantage</text>
+  <path class="thin" d="M560 343H727M560 383H699"/><rect class="teal" x="567" y="327" width="25" height="25" rx="4"/><rect class="coral" x="599" y="367" width="25" height="25" rx="4"/>
+  <text class="label" x="643" y="497">构造训练信号</text><text class="small" x="643" y="525">scores → rewards → advantages</text>
+  <path class="ink" d="M790 342H945" marker-end="url(#arrow)"/>
+  <text class="small" x="868" y="320">对齐后的训练 batch</text>
+  <circle class="gold thin" cx="1050" cy="179" r="26"/><text class="num" x="1050" y="179">3</text>
+  <rect class="paper ink" x="958" y="225" width="250" height="235" rx="22"/>
+  <rect class="coral" x="986" y="249" width="194" height="41" rx="12"/><text class="chip" x="1083" y="276">train_mode / update</text>
+  <path class="thin" d="M1011 390C1030 344 1050 434 1070 342C1090 303 1110 409 1130 355"/><path class="thin" d="M1008 411H1151"/>
+  <text class="label" x="1083" y="497">Actor 更新</text><text class="small" x="1083" y="525">loss → backward → optimizer</text>
+  <path class="ink" d="M1230 342H1365" marker-end="url(#arrow)"/>
+  <rect class="paper ink" x="1275" y="225" width="156" height="235" rx="22"/>
+  <circle class="teal thin" cx="1353" cy="325" r="39"/><path class="thin" d="M1337 325H1369M1353 309V341"/>
+  <text class="label" x="1353" y="497">权重 v18</text><text class="small" x="1353" y="525">进入下一轮 rollout</text>
+  <path class="thin dash" d="M1353 568V620H203V568" marker-end="url(#arrow)"/>
+  <text class="label" x="780" y="615">权重同步 / 版本切换</text>
+  <rect class="paper thin" x="78" y="640" width="1353" height="35" rx="12"/><text class="note" x="102" y="665">源码定位：`EngineWorker.infer_batch` 使用推理上下文；更新路径进入 `engine.train_mode(...)`。是否同进程、同显存或独立 rollout server，由配置与后端决定。</text>
+</svg>

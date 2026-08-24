@@ -54,6 +54,8 @@ flowchart LR
 - `non_tensor_batch`：仍按样本对齐、但不该 tensor 化的内容，如原始 prompt、`uid`、工具调用 trace；
 - `meta_info`：批次级控制信息，如温度、采样参数、rollout 或权重版本。
 
+![DataProto 的三层批次契约，以及字段如何被选择、扩展、合并和重排](assets/dataproto-contract.svg)
+
 构造时，所有 tensor 的第 0 维必须一致；`non_tensors` 也只支持一个 batch 维度。[`from_dict`](https://github.com/volcengine/verl/blob/c4b389adadc58ce51cb2b63e70df497ca166d77f/verl/protocol.py#L496-L535) 把这个约束前置了：只重视 `input_ids`、却漏掉 `uid` 或 rollout 元数据，是训推错配最常见的起点。
 
 ```python
@@ -85,6 +87,37 @@ DataProto(size=2)
 
 读源码时，把以下操作理解为周转箱操作即可：`select` 取要送往下游的字段，`select_idxs` 筛样本，`union` 合并上游新增字段，`reorder` 恢复异步结果顺序，`repeat` 为同一 prompt 扩展多条 rollout。实现见 [`select`](https://github.com/volcengine/verl/blob/c4b389adadc58ce51cb2b63e70df497ca166d77f/verl/protocol.py#L600-L650)、[`union`](https://github.com/volcengine/verl/blob/c4b389adadc58ce51cb2b63e70df497ca166d77f/verl/protocol.py#L781-L814) 与 [`reorder` / `repeat`](https://github.com/volcengine/verl/blob/c4b389adadc58ce51cb2b63e70df497ca166d77f/verl/protocol.py#L963-L1005)。
 
+### 用字段演进读代码
+
+下面不是逐行摘抄 Verl，而是把上述 API 串成“字段怎样长出来”的最小骨架。阅读真实训练 loop 时，用它对照每次 `union` 前后有哪些 key 会非常有效：
+
+```python
+# 教学伪代码：重点是字段和样本对齐，不保证可独立运行。
+prompt_batch = DataProto.from_dict(
+    tensors={"input_ids": input_ids},
+    non_tensors={"uid": uids},
+    meta_info={"rollout_version": weight_version},
+)
+
+# GRPO 场景：一个 prompt 复制成多条采样轨迹；uid 也必须随之复制。
+rollout_input = prompt_batch.repeat(repeat_times=num_repeat, interleave=True)
+rollout_input = rollout_input.select(
+    batch_keys=["input_ids"],
+    non_tensor_batch_keys=["uid"],
+    meta_info_keys=["rollout_version"],
+)
+
+rollout_output = rollout_worker.generate_sequences(rollout_input)
+# rollout_output 典型地带回 responses、rollout_log_probs、response_mask 等。
+train_batch = rollout_input.union(rollout_output)
+
+# 若异步返回打乱了顺序，先恢复顺序，再计算 reward / advantage。
+train_batch.reorder(original_indices)
+assert len(train_batch.non_tensor_batch["uid"]) == train_batch.batch.batch_size[0]
+```
+
+**源码跟读检查点**：每经过一次 `repeat`、`select_idxs` 或 `reorder`，都问一句：`uid`、`responses`、`response_mask` 和 `rollout_log_probs` 的第 0 维是否仍代表同一条样本？这比只检查 tensor shape 更能发现实际错配。
+
 ## 2. 布置工位：先创建角色，再装载模型
 
 [`RayPPOTrainer.init_workers`](https://github.com/volcengine/verl/blob/c4b389adadc58ce51cb2b63e70df497ca166d77f/verl/trainer/ppo/ray_trainer.py#L772-L904) 会按配置拉起 actor/rollout、reference、critic、reward 等 worker group，并完成模型初始化。它更像开工前分配工位，而不是一张固定的 GPU 分区图：
@@ -99,9 +132,37 @@ Ray runtime
 
 这里的关键判断是：**角色是算法职责，资源占用是部署策略。**是否 colocate、是否服务化 rollout、何时同步权重，不能仅从 GRPO 或 PPO 的公式推导出来。
 
+### 分布式初始化时，建议记下这四件事
+
+| 记录项 | 为什么要记 | 代码/日志中的线索 |
+| --- | --- | --- |
+| 角色放置 | 判断是否 colocate、是否有独立 rollout 服务 | worker group 配置、Ray placement |
+| 权重版本 | 防止 rollout 使用旧 actor 权重 | checkpoint / weight-update 日志 |
+| batch 尺寸 | 影响每卡 mini-batch 与有效 token 数 | `mini_batch_size`、DP world size |
+| 后端模式 | 决定 KV cache、显存与同步路径 | rollout backend、engine 配置 |
+
 ## 3. 去答题：rollout 是推理态下的采样
 
 训练 loop 将 prompt batch 交给 `generate_sequences`，得到回答以及与本次采样有关的数据；rollout 抽象的返回值仍是 `DataProto`。[`BaseRollout.generate_sequences`](https://github.com/volcengine/verl/blob/c4b389adadc58ce51cb2b63e70df497ca166d77f/verl/workers/rollout/base.py#L76-L86) 和 [`EngineWorker.infer_batch`](https://github.com/volcengine/verl/blob/c4b389adadc58ce51cb2b63e70df497ca166d77f/verl/workers/engine_workers.py#L410-L470) 分别对应接口与 engine 路径。
+
+![rollout 推理态、奖励/优势计算、actor 训练态，以及新权重进入下一轮的闭环](assets/verl-mode-weight-loop.svg)
+
+图里最重要的标记是版本：用 v17 生成出来的 `rollout_log_probs` 应与那次采样关联；actor 更新后得到 v18，下一轮 rollout 才使用 v18。训练和推理可能共享资源，也可能是独立服务；无论部署怎样变化，**batch 的来源版本不能含糊**。
+
+```python
+# 与固定版本设计一致的简化骨架；真实参数和分发包装省略。
+with engine.eval_mode():
+    rollout_output = rollout.generate_sequences(rollout_input)
+
+batch = rollout_input.union(rollout_output)
+batch.batch["token_level_scores"] = reward_tensor
+batch = compute_advantage(batch, adv_estimator=estimator, gamma=gamma, lam=lam)
+
+with engine.train_mode():
+    train_output = engine.train_batch(actor_minibatch, loss_function=actor_loss)
+```
+
+真实的 actor worker 会在 `train_mode` 内再切 mini-batch、跨 data-parallel rank 聚合 token 数，并在最后一个 mini-batch 推进学习率调度器；这些细节见 [`engine_workers.py`](https://github.com/volcengine/verl/blob/c4b389adadc58ce51cb2b63e70df497ca166d77f/verl/workers/engine_workers.py#L260-L359)。上面的代码只提炼阶段边界，避免误把它当成可直接运行的训练脚本。
 
 ```text
 # 模拟的一次 rollout 返回
@@ -131,6 +192,29 @@ response → verifier / reward model → token_level_scores
 - **GAE / PPO**：还依赖 `gamma`、`lam` 与 critic values。
 
 因此不要把日志中的 reward/mean 直接当 advantage。固定版本会把 estimator、`gamma`、`lam` 和 `rollout.n` 一并传给 [`compute_advantage()`](https://github.com/volcengine/verl/blob/c4b389adadc58ce51cb2b63e70df497ca166d77f/verl/trainer/ppo/ray_trainer.py#L1625-L1648)。
+
+### 把分数落到字段上
+
+```python
+# 仍为字段级伪代码；参数名以固定版本的主流程为参照。
+batch.batch["token_level_scores"] = reward_tensor
+
+if use_kl_in_reward:
+    batch, kl_metrics = apply_kl_penalty(batch, kl_ctrl=kl_controller)
+else:
+    batch.batch["token_level_rewards"] = batch.batch["token_level_scores"]
+
+batch = compute_advantage(
+    batch,
+    adv_estimator=adv_estimator,
+    gamma=gamma,
+    lam=lam,
+    num_repeat=rollout_n,
+)
+# 之后 batch 中应能找到 advantages；PPO/GAE 路径还会用到 returns / values。
+```
+
+检查日志时，建议把 `reward/mean`、`adv/std`、KL 和 response length 放在同一张面板里。reward 变高而 `adv/std` 近乎为零，或长度突然极端变化，都值得回到这一段检查分组、mask 与归一化。
 
 ## 5. 回去练习：actor 在训练态更新
 
