@@ -113,6 +113,10 @@ uid=math-002 | response="41"          | response_length=1
 
 ## 4. 打分再翻译：reward 不等于 advantage
 
+![RLHF 中从 rollout、reward 与 value 到 advantage，再到策略更新的关系图](assets/rlhf-reward-value-advantage-flow.png)
+
+上图提供了一个算法视角的补充：reward 是打分结果，value（critic）只在 PPO / GAE 路径中参与估计；GRPO、REINFORCE++、REMAX 则用不同方式把分数转成 advantage，最后都汇入 policy update。它和本文前面的系统流程图是互补关系：前者解释**信号如何计算**，后者解释**这些信号如何在 worker 与数据契约之间流转**。
+
 reward model 或规则函数先把结果写入 `token_level_scores`；可选的 KL penalty 形成 `token_level_rewards`；随后 `compute_advantage()` 将它们转换为 `advantages` 和 `returns`。主流程在 [`ray_trainer.py`](https://github.com/volcengine/verl/blob/c4b389adadc58ce51cb2b63e70df497ca166d77f/verl/trainer/ppo/ray_trainer.py#L1580-L1648)。
 
 ```text
