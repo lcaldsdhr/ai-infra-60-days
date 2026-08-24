@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="760" viewBox="0 0 1600 760" role="img" aria-labelledby="title desc">
+  <title id="title">Verl 中一个 batch 的训练生命周期</title>
+  <desc id="desc">从提示词数据、DataProto、分布式 worker、rollout、奖励和优势，到训练更新与下一轮迭代的六步流程图。</desc>
+  <defs>
+    <style>
+      .bg { fill: #fbf7ef; }
+      .ink { stroke: #102f61; stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .thin { stroke: #102f61; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .dash { stroke-dasharray: 8 12; }
+      .teal { fill: #63bdb5; }
+      .coral { fill: #ef7f64; }
+      .gold { fill: #f4dc88; }
+      .paper { fill: #fffdf8; }
+      .muted { fill: #d8e5e1; }
+      .bluefill { fill: #b7cde2; }
+      text { font-family: "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; fill: #102f61; }
+      .number { font-weight: 700; font-size: 27px; text-anchor: middle; dominant-baseline: central; }
+      .label { font-weight: 700; font-size: 24px; text-anchor: middle; }
+      .small { font-size: 17px; text-anchor: middle; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#102f61"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1600" height="760" rx="28"/>
+  <path class="thin dash" d="M70 112 H1530 Q1560 112 1560 142 V660 Q1560 690 1530 690 H70 Q40 690 40 660 V142 Q40 112 70 112"/>
+  <text x="84" y="78" style="font-weight:700;font-size:36px">一个 batch，跑完一轮训练</text>
+  <text x="84" y="103" style="font-size:17px;fill:#557093">数据契约 → 推理采样 → 学习更新 → 下一轮</text>
+
+  <!-- step connectors -->
+  <path class="ink" d="M286 370 H347" marker-end="url(#arrow)"/>
+  <path class="ink" d="M528 370 H588" marker-end="url(#arrow)"/>
+  <path class="ink" d="M770 370 H830" marker-end="url(#arrow)"/>
+  <path class="ink" d="M1012 370 H1072" marker-end="url(#arrow)"/>
+  <path class="ink" d="M1254 370 H1314" marker-end="url(#arrow)"/>
+
+  <!-- 1 prompt -->
+  <circle class="gold thin" cx="166" cy="162" r="30"/><text class="number" x="166" y="163">1</text>
+  <rect class="paper ink" x="72" y="250" width="190" height="178" rx="12"/>
+  <path class="thin" d="M94 284 H240 M94 317 H240 M94 350 H240 M94 383 H240 M124 264 V412 M155 264 V412 M186 264 V412 M217 264 V412"/>
+  <rect class="teal" x="126" y="320" width="29" height="29" rx="3"/><rect class="teal" x="157" y="320" width="29" height="29" rx="3"/>
+  <rect class="teal" x="126" y="353" width="29" height="29" rx="3"/><rect class="coral" x="188" y="353" width="29" height="29" rx="3"/>
+  <text class="label" x="167" y="470">Prompt 数据</text><text class="small" x="167" y="496">一批待回答的问题</text>
+
+  <!-- 2 protocol -->
+  <circle class="gold thin" cx="407" cy="162" r="30"/><text class="number" x="407" y="163">2</text>
+  <path class="paper ink" d="M365 254 H490 L520 284 V425 H335 V284 Z"/>
+  <path class="thin" d="M490 254 V284 H520 M365 311 H490 M365 347 H490 M365 383 H454"/>
+  <rect class="teal" x="354" y="294" width="20" height="12" rx="2"/><rect class="bluefill" x="380" y="294" width="20" height="12" rx="2"/><rect class="coral" x="406" y="294" width="20" height="12" rx="2"/>
+  <circle class="teal" cx="473" cy="388" r="12"/>
+  <text class="label" x="427" y="470">DataProto</text><text class="small" x="427" y="496">带字段、顺序与版本的周转箱</text>
+
+  <!-- 3 workers -->
+  <circle class="gold thin" cx="648" cy="162" r="30"/><text class="number" x="648" y="163">3</text>
+  <rect class="paper ink" x="611" y="238" width="140" height="201" rx="10"/>
+  <rect class="bluefill thin" x="629" y="260" width="104" height="33" rx="4"/><rect class="teal thin" x="629" y="313" width="104" height="33" rx="4"/>
+  <rect class="bluefill thin" x="629" y="366" width="104" height="33" rx="4"/>
+  <circle class="paper thin" cx="650" cy="276" r="6"/><circle class="paper thin" cx="675" cy="276" r="6"/><circle class="paper thin" cx="700" cy="276" r="6"/>
+  <circle class="paper thin" cx="650" cy="329" r="6"/><circle class="paper thin" cx="675" cy="329" r="6"/><circle class="paper thin" cx="700" cy="329" r="6"/>
+  <circle class="paper thin" cx="650" cy="382" r="6"/><circle class="paper thin" cx="675" cy="382" r="6"/><circle class="paper thin" cx="700" cy="382" r="6"/>
+  <text class="label" x="681" y="470">Worker 初始化</text><text class="small" x="681" y="496">角色、权重与资源就位</text>
+
+  <!-- 4 rollout -->
+  <circle class="gold thin" cx="890" cy="162" r="30"/><text class="number" x="890" y="163">4</text>
+  <rect class="paper ink" x="852" y="274" width="140" height="132" rx="16"/>
+  <path class="thin" d="M877 311 H958 M877 340 H941 M877 369 H966"/>
+  <rect class="teal" x="877" y="300" width="20" height="16" rx="3"/><rect class="bluefill" x="904" y="300" width="20" height="16" rx="3"/><rect class="coral" x="931" y="300" width="20" height="16" rx="3"/>
+  <path class="thin dash" d="M852 338 H817"/><circle class="teal" cx="808" cy="338" r="7"/>
+  <text class="label" x="922" y="470">Rollout</text><text class="small" x="922" y="496">切入推理态，采样回答</text>
+
+  <!-- 5 score -->
+  <circle class="gold thin" cx="1131" cy="162" r="30"/><text class="number" x="1131" y="163">5</text>
+  <rect class="paper ink" x="1094" y="264" width="140" height="151" rx="16"/>
+  <path class="thin" d="M1120 370 V317 M1153 370 V293 M1186 370 V333"/>
+  <rect class="teal" x="1109" y="317" width="23" height="53" rx="3"/><rect class="bluefill" x="1142" y="293" width="23" height="77" rx="3"/><rect class="coral" x="1175" y="333" width="23" height="37" rx="3"/>
+  <path class="thin" d="M1114 392 H1212" marker-end="url(#arrow)"/>
+  <text class="label" x="1164" y="470">Reward → Advantage</text><text class="small" x="1164" y="496">把结果翻译成更新信号</text>
+
+  <!-- 6 update -->
+  <circle class="gold thin" cx="1373" cy="162" r="30"/><text class="number" x="1373" y="163">6</text>
+  <path class="paper ink" d="M1331 273 L1366 238 H1420 L1453 273 V398 L1420 430 H1366 L1331 398 Z"/>
+  <circle class="teal thin" cx="1392" cy="333" r="31"/><circle class="paper thin" cx="1392" cy="333" r="10"/>
+  <path class="thin" d="M1392 274 V257 M1392 409 V392 M1334 333 H1353 M1431 333 H1450 M1350 291 L1363 304 M1421 362 L1434 375 M1350 375 L1363 362 M1421 304 L1434 291"/>
+  <text class="label" x="1392" y="470">Actor 更新</text><text class="small" x="1392" y="496">回到训练态，反传一步</text>
+
+  <!-- shared loop -->
+  <path class="thin dash" d="M1392 550 V604 H680 V566" marker-end="url(#arrow)"/>
+  <circle class="paper thin" cx="680" cy="560" r="20"/><path class="thin" d="M672 560 H688 M680 552 V568"/>
+  <text x="1036" y="638" style="font-weight:700;font-size:21px;text-anchor:middle">验证 / 保存 / 是否继续？</text>
+  <text x="1036" y="665" style="font-size:17px;text-anchor:middle;fill:#557093">继续：携带更新后的权重进入下一次 rollout</text>
+</svg>
