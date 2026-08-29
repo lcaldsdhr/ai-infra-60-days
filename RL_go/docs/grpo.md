@@ -17,10 +17,25 @@
 {\operatorname{std}(R_{1:G})+\epsilon}.
 \]
 
+![同一 prompt 的四条 rollout 如何从 reward 变成正负 GRPO advantage](assets/grpo-relative-advantage.svg)
+
 每个 completion 的 token 共享该序列优势；策略比率是
 \(r_{i,t}(\theta)=\pi_\theta(o_{i,t}\mid q,o_{i,<t}) / \pi_{\theta_{old}}(o_{i,t}\mid q,o_{i,<t})\)。GRPO 使用 PPO 风格的 clipped surrogate，原始形式还可加相对 reference policy 的 KL 项。公式、KL 的 token 近似及组优势定义见[原论文 §4](https://arxiv.org/html/2402.03300v1#S4)。
 
 直觉上，正确/高分回答高于组均值就得到正更新，低分回答被压低；同组奖励相同则 \(\hat A_i=0\)，这组不会产生策略梯度。这不是 bug，而是无相对排序信号的直接结果；DAPO 正是将此称为有效 prompt 减少的问题并对其过滤。[DAPO §3.2](https://arxiv.org/html/2503.14476v1#S3.SS2)
+
+### 一个必须手算对的例子
+
+同一题采样四条回答，规则 reward 为 `[0, 1, 1, 0]`。均值是 `0.5`。本仓库固定版本的 Verl 在 [`compute_grpo_outcome_advantage`](../verl/verl/trainer/ppo/core_algos.py) 中调用 `torch.std()`；它默认计算**样本标准差**，所以标准差是约 `0.577350`，而非以 (G) 为分母的 `0.5`。
+
+```text
+rewards:     [0, 1, 1, 0]
+mean:        0.500000
+sample std:  0.577350
+advantages: [-0.866024, +0.866024, +0.866024, -0.866024]
+```
+
+随后每条 completion 的标量 advantage 会乘上 `response_mask`，广播到它的所有有效 response token；padding token 保持为 0。也就是说，**outcome-only GRPO 并不知道一条推理链中哪个 token 最好，它把同一个序列级评价分配给整条有效 completion。**
 
 ## 3. 一次训练迭代
 
@@ -30,6 +45,42 @@
 4. 对若干 PPO epoch / minibatch 更新 actor；同步权重后开始下一轮 rollout。
 
 这是一种 **on-policy 近似**：rollout 与训练策略、数值精度或权重版本有偏离时会产生训练—推理 mismatch。固定版本的 verl 已把这一风险显式建模为 rollout correction；阅读时不要把“GRPO 的公式”与“系统中采样/训练不同步”混为一谈。[verL rollout-correction 配置](../verl/verl/trainer/config/algorithm.py)
+
+### advantage 如何真的改变策略
+
+为了隔离更新方向，可以暂时把“一条完整回答”抽象成分类策略中的一个动作，并最大化：
+
+\[
+J(\theta)=\frac{1}{G}\sum_i A_i\log \pi_\theta(o_i\mid q).
+\]
+
+![初始均匀策略经过一次简化的 advantage 加权更新后，正优势轨迹的概率上升](assets/grpo-policy-update.svg)
+
+图中没有展开 PPO clip 和 KL，但方向与真实训练一致：正 advantage 增大对应 completion 的 log-prob，负 advantage 减小它。PPO clip、KL、多个 minibatch/epoch 的职责是约束“移动多少”，而不是改变“往哪边移动”。
+
+## 3.1 可运行：优势、token 广播与一次策略更新
+
+实验在 [`RL_go/code/grpo_advantage_demo`](../code/grpo_advantage_demo/README.md)，只依赖 Python 标准库；它复现固定 Verl 代码最重要的三件事：组内样本标准差、`response_mask` 广播，以及正负 advantage 的更新方向。
+
+```powershell
+python RL_go/code/grpo_advantage_demo/demo.py
+```
+
+预期输出的关键部分：
+
+```text
+== 1. One prompt, four rollouts ==
+advantages:    [-0.866024, +0.866024, +0.866024, -0.866024]
+token broadcast (trajectory 1, mask [1, 1, 1, 0]):
+[-0.866024, -0.866024, -0.866024, +0.000000]
+
+== 2. One simplified policy-gradient ascent step ==
+probability before: [+0.250000, +0.250000, +0.250000, +0.250000]
+probability after:  [+0.223042, +0.276958, +0.276958, +0.223042]
+expected: trajectories 2/3 (positive advantage) increase; 1/4 decrease
+```
+
+运行末尾的断言检查三条不变量：正优势概率上升、负优势概率下降、全同 reward 组的 advantage 全为 0。它是对“GRPO 是否朝正确方向更新”的最小验证，不是一个真实大模型训练器。
 
 ## 4. 关键超参数与工程机制
 
@@ -69,7 +120,7 @@
 3. [算法配置](../verl/verl/trainer/config/algorithm.py)：查看 `norm_adv_by_std_in_grpo`、`use_kl_in_reward` 和 rollout correction 的语义。
 4. 在源码中搜索 `compute_grpo_outcome_advantage` / `adv_estimator`，从 reward、advantages 到 actor loss 追一条 batch；函数名随上游演进，**以此固定 commit 的实际搜索结果为准**。
 
-最小实验建议：先选一个有单元测试式 reward 的小数据集，记录每步 `G`、有效组比例、reward 均值/方差、response length、entropy、KL 与验证 pass@1。只有这些量能同时解释时，才扩大模型或集群规模。
+最小实验建议：先运行本仓库的 [`grpo_advantage_demo`](../code/grpo_advantage_demo/README.md)，再选一个有单元测试式 reward 的小数据集，记录每步 `G`、有效组比例、reward 均值/方差、response length、entropy、KL 与验证 pass@1。只有这些量能同时解释时，才扩大模型或集群规模。
 
 ## 7. 一手阅读入口
 

@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="650" viewBox="0 0 1400 650" role="img" aria-labelledby="title desc">
+  <title id="title">GRPO 的组内相对优势</title>
+  <desc id="desc">同一个 prompt 生成四条轨迹，奖励经过组均值与样本标准差标准化为正负优势，并广播到每条 response 的有效 token。</desc>
+  <defs>
+    <style>
+      .bg{fill:#fbf7ef}.paper{fill:#fffdf8}.ink{stroke:#102f61;stroke-width:4;fill:none;stroke-linecap:round;stroke-linejoin:round}.thin{stroke:#102f61;stroke-width:2.5;fill:none;stroke-linecap:round;stroke-linejoin:round}.dash{stroke-dasharray:8 9}.teal{fill:#64bdb5}.blue{fill:#b8cde2}.coral{fill:#ef7f64}.gold{fill:#f4dc88}.pale{fill:#e9f1ef}text{font-family:"Microsoft YaHei","Noto Sans CJK SC",sans-serif;fill:#102f61}.h{font-size:34px;font-weight:700}.sub{font-size:18px;fill:#557093}.label{font-size:22px;font-weight:700;text-anchor:middle}.small{font-size:16px;text-anchor:middle;fill:#557093}.num{font-size:22px;font-weight:700;text-anchor:middle;dominant-baseline:central}.formula{font-size:24px;font-weight:700;text-anchor:middle}
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#102f61"/></marker>
+  </defs>
+  <rect class="bg" width="1400" height="650" rx="28"/>
+  <text class="h" x="60" y="66">GRPO：不问绝对分数，只问同题的相对表现</text>
+  <text class="sub" x="60" y="96">一个 prompt 采样 G 条轨迹；图中 G = 4，固定 Verl 版本使用样本标准差。</text>
+  <rect class="paper ink" x="60" y="145" width="360" height="330" rx="22"/>
+  <circle class="gold thin" cx="102" cy="189" r="22"/><text class="num" x="102" y="189">1</text><text x="139" y="197" style="font-size:22px;font-weight:700">同一个 prompt</text>
+  <rect class="pale thin" x="91" y="224" width="298" height="62" rx="13"/><text class="label" x="240" y="262">“2 + 2 等于多少？”</text>
+  <text class="small" x="240" y="316">rollout.n = 4</text>
+  <circle class="teal" cx="115" cy="350" r="8"/><text x="138" y="356" style="font-size:17px">轨迹 1：回答 3</text>
+  <circle class="teal" cx="115" cy="385" r="8"/><text x="138" y="391" style="font-size:17px">轨迹 2：回答 4</text>
+  <circle class="teal" cx="115" cy="420" r="8"/><text x="138" y="426" style="font-size:17px">轨迹 3：回答 4</text>
+  <circle class="teal" cx="115" cy="455" r="8"/><text x="138" y="461" style="font-size:17px">轨迹 4：回答 5</text>
+  <path class="ink" d="M445 310H535" marker-end="url(#arrow)"/>
+  <text class="small" x="490" y="291">逐条打分</text>
+  <rect class="paper ink" x="560" y="145" width="310" height="330" rx="22"/>
+  <circle class="gold thin" cx="602" cy="189" r="22"/><text class="num" x="602" y="189">2</text><text x="639" y="197" style="font-size:22px;font-weight:700">组内基线</text>
+  <text class="formula" x="715" y="257">rewards = [0, 1, 1, 0]</text>
+  <path class="thin dash" d="M590 286H840"/>
+  <text class="formula" x="715" y="330">mean = 0.5</text>
+  <text class="formula" x="715" y="373">sample std ≈ 0.577</text>
+  <text class="small" x="715" y="425">同组均值消掉题目共同难度</text>
+  <path class="ink" d="M894 310H984" marker-end="url(#arrow)"/>
+  <text class="small" x="939" y="291">相对化</text>
+  <rect class="paper ink" x="1009" y="145" width="331" height="330" rx="22"/>
+  <circle class="gold thin" cx="1051" cy="189" r="22"/><text class="num" x="1051" y="189">3</text><text x="1088" y="197" style="font-size:22px;font-weight:700">优势与更新方向</text>
+  <rect class="coral" x="1043" y="239" width="125" height="42" rx="10"/><text class="label" x="1105" y="267">−0.866</text><text x="1191" y="267" style="font-size:17px">降低概率</text>
+  <rect class="teal" x="1043" y="302" width="125" height="42" rx="10"/><text class="label" x="1105" y="330">+0.866</text><text x="1191" y="330" style="font-size:17px">提高概率</text>
+  <rect class="teal" x="1043" y="365" width="125" height="42" rx="10"/><text class="label" x="1105" y="393">+0.866</text><text x="1191" y="393" style="font-size:17px">提高概率</text>
+  <rect class="coral" x="1043" y="428" width="125" height="42" rx="10"/><text class="label" x="1105" y="456">−0.866</text><text x="1191" y="456" style="font-size:17px">降低概率</text>
+  <rect class="paper thin" x="60" y="520" width="1280" height="76" rx="17"/>
+  <text x="90" y="552" style="font-size:20px;font-weight:700">token 广播</text><text x="90" y="578" style="font-size:16px;fill:#557093">一条 completion 的标量 advantage 复制到所有有效 response token；padding token 由 response_mask 置零。</text>
+  <rect class="coral" x="732" y="542" width="45" height="30" rx="5"/><rect class="coral" x="783" y="542" width="45" height="30" rx="5"/><rect class="coral" x="834" y="542" width="45" height="30" rx="5"/><rect class="paper thin" x="885" y="542" width="45" height="30" rx="5"/><text x="949" y="564" style="font-size:17px">[−0.866, −0.866, −0.866, 0]</text>
+</svg>

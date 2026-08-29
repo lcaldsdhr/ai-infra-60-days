@@ -9,3 +9,9 @@
 - 不含权重、数据集、checkpoint 和凭据。
 
 涉及上游源码时，记录它对应的 `RL_go/verl` gitlink 提交。
+
+## 当前实验
+
+| 实验 | 内容 | 运行方式 |
+| --- | --- | --- |
+| [grpo_advantage_demo](grpo_advantage_demo/README.md) | 组内优势、token 广播与一次简化策略更新 | `python RL_go/code/grpo_advantage_demo/demo.py` |
