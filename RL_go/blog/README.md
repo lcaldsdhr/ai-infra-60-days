@@ -11,3 +11,4 @@
 ## 已收录
 
 - [Verl 训练生命周期：从 DataProto 到 rollout 与 actor 更新](verl-training-lifecycle.md)
+- [LLM 推理专题](inference/README.md)
