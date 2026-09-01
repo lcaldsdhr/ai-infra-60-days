@@ -16,6 +16,8 @@ Prompt ──► Prefill：并行处理 L_in 个 token，生成每层 KV Cache
                                   └──► Decode：重复 L_out 次；每次读取既有 KV，生成 1 个新 token
 ```
 
+![KV Cache 如何避免重复计算](assets/kv-cache-mechanism.png)
+
 - **Prefill** 的计算量随输入长度快速增加，通常更偏计算密集；长 Prompt、RAG 拼接和多轮历史都会拖慢它。它直接影响用户多久看到第一个字，即 **TTFT**。
 - **Decode** 每一步只计算一个新 token，却要反复读取越来越长的 KV Cache，通常更偏访存密集。它决定后续 token 是否均匀流出，即 **TPOT**。
 
