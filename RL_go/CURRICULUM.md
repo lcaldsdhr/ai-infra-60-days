@@ -44,6 +44,12 @@
 5. `verl/workers/rollout/`：vLLM/SGLang rollout、采样和权重同步。
 6. `verl/experimental/agent_loop/`：多轮工具与环境轨迹。
 
+## 路线 E：训练效率、稳定性与恢复
+
+1. [显存与吞吐](blog/training/memory-and-throughput.md)：梯度累积、混合精度、激活重计算、状态分片与 Sequence Packing。
+2. [训练稳定性与故障恢复](blog/training/stability-and-recovery.md)：梯度裁剪、LR Warmup 与完整 Checkpoint。
+3. 验收时同时记录显存、有效 tokens/s、通信占比、grad norm、NaN/Inf、LR、验证指标和恢复演练结果。
+
 ## 每章统一验收模板
 
 - **能讲清**：用自己的话解释输入、输出、状态和瓶颈；

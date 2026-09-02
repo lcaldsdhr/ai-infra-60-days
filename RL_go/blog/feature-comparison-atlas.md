@@ -23,4 +23,17 @@
 | DAPO | 长 CoT 出现熵塌缩、无效组、长度偏置和截断噪声 | 朴素 GRPO 的四类不稳定 | Clip-Higher、动态采样、token loss、长度 shaping | 过滤成本、分布偏移与额外校准 | [DAPO](../docs/dapo.md) |
 | 训推一致性 | rollout 与训练由不同引擎执行 | token/log-prob 不可比，ratio/KL 失真 | 对齐权重、Tokenizer、位置、精度和概率语义 | 同步、版本与对齐测试成本 | [训推一致性](reinforcement-learning/training-inference-consistency.md) |
 
+## 训练与通用技术
+
+| 特性 | 产生原因 | Without | With | 新代价 | 深入阅读 |
+| --- | --- | --- | --- | --- | --- |
+| 梯度累积 | global batch 单步放不下 | 一次大 batch OOM | micro-batch 多次累积后更新 | 总计算不减、步耗时增加 | [显存与吞吐](training/memory-and-throughput.md#1-梯度累积解决单步-batch-放不下) |
+| 混合精度 | FP32 成本高、FP16 范围小 | 带宽高或梯度下溢 | 低精度计算 + 高精度更新/Loss Scaling | 溢出检测与精度管理 | [显存与吞吐](training/memory-and-throughput.md#2-混合精度吞吐与数值范围的折中) |
+| Activation Checkpointing | 深层/长序列激活占用高 | 保存全部激活到反向结束 | 只存检查点，反向前重算 | 额外前向计算 | [显存与吞吐](training/memory-and-throughput.md#3-activation-checkpointing以重计算换显存) |
+| FSDP / ZeRO | Data Parallel 重复训练状态 | 每卡完整 P/G/O | 参数、梯度、优化器状态分片 | 通信、预取和 checkpoint 复杂度 | [显存与吞吐](training/memory-and-throughput.md#4-fsdp--zero分片训练状态) |
+| Sequence Packing | 长度不同造成 Padding 浪费 | 无效 token 消耗 FLOPs/激活 | 多样本紧密打包并隔离 mask | 边界、position 与 loss mask | [显存与吞吐](training/memory-and-throughput.md#5-sequence-packing提高有效-token-比例) |
+| Gradient Clipping | 偶发大梯度破坏更新 | loss spike、NaN 或发散 | global norm 超阈值后等比缩放 | 阈值可能压制学习并掩盖 bug | [稳定性](training/stability-and-recovery.md#1-gradient-clipping给异常更新系安全带) |
+| LR Warmup | 训练早期梯度/moments 未稳定 | 峰值 LR 导致早期震荡 | LR 小步升高后 decay | warmup 占预算、恢复需同步 step | [稳定性](training/stability-and-recovery.md#2-learning-rate-warmup稳定起跑) |
+| 完整 Checkpoint | 长训练随时可能中断 | 只存权重无法复现续跑 | 保存完整训练与数据状态 | IO、版本兼容与恢复演练 | [稳定性](training/stability-and-recovery.md#3-完整-checkpoint保存可恢复状态) |
+
 这些图是判断框架，不是性能承诺。任何 With 方案都要用固定负载和外部质量指标验证；当产生原因不存在时，新增复杂度可能大于收益。

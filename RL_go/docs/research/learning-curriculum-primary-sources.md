@@ -229,3 +229,15 @@ c4b389adadc58ce51cb2b63e70df497ca166d77f
 - 性能表必须记录 GPU 型号/数量、互联、CUDA/驱动、模型与精度、输入/输出长度分布、并发、warm-up、batch 策略和统计分位数。
 - 不把论文 abstract 的峰值加速数字拼成跨系统结论；每种优化可能改变不同瓶颈，也可能互相冲突。
 - 任何 reward、judge 或 benchmark 都需要记录版本和失败案例；高 reward 不自动等价于真实能力或安全性提升。
+
+## 13. 大模型训练效率、稳定性与恢复
+
+| 一手资料 | 核心结论 | 原始链接 | 建议阅读目的 |
+|---|---|---|---|
+| Mixed Precision Training | 低精度矩阵计算可提高吞吐并降低内存；FP16 训练用 FP32 master weights 与 loss scaling 避免小梯度下溢。 | [论文（arXiv）](https://arxiv.org/abs/1710.03740) | 对比 FP16/BF16 数值范围，记录 scaler 溢出、跳步与敏感算子精度。 |
+| Training Deep Nets with Sublinear Memory Cost | 只保存部分中间状态，并在反向传播前重算缺失激活，可用额外计算换更低 activation memory。 | [论文（arXiv）](https://arxiv.org/abs/1604.06174) | 计算每种 checkpoint 分段的激活峰值和额外 Forward FLOPs。 |
+| ZeRO | 将 optimizer states、gradients 和 parameters 分阶段切分到 data-parallel ranks，减少状态复制。 | [论文（arXiv）](https://arxiv.org/abs/1910.02054) | 画出三个 stage 的状态归属与 collective；不要把理想 1/N 当成实际峰值显存。 |
+| PyTorch FSDP | FSDP 将参数分片、按需 All-Gather 与梯度 Reduce-Scatter 集成到 PyTorch 训练流程，并讨论预取、重叠与扩展经验。 | [论文（arXiv）](https://arxiv.org/abs/2304.11277) | 对照模型 wrap 单元、通信拓扑、临时 full parameter 和分片 checkpoint。 |
+| On the Difficulty of Training Recurrent Neural Networks | 分析梯度爆炸/消失，并提出 norm clipping 作为限制爆炸梯度的实用方法。 | [论文（arXiv）](https://arxiv.org/abs/1211.5063) | 将 clipping 视为保护措施；把触发 batch 与数据、长度、loss 和混合精度日志关联。 |
+| Accurate, Large Minibatch SGD | 大 batch 训练配方包含线性学习率缩放与逐步 warmup，用于避免训练初期不稳定；结论来自论文给定的视觉任务设置。 | [论文（arXiv）](https://arxiv.org/abs/1706.02677) | 理解 warmup、peak LR、global batch 和总 optimizer steps 的联动，不机械搬用比例。 |
+| PyTorch Distributed Checkpoint | 官方接口面向分布式 state dict 的并行保存/加载和 resharding；可恢复性仍需用户保存完整训练语义并演练。 | [官方文档](https://docs.pytorch.org/docs/stable/distributed.checkpoint.html) | 设计 checkpoint manifest、原子完成标记、校验和、版本兼容与恢复演练。 |

@@ -13,4 +13,5 @@
 - [Verl 训练生命周期：从 DataProto 到 rollout 与 actor 更新](verl-training-lifecycle.md)
 - [LLM 推理专题](inference/README.md)
 - [强化学习专题](reinforcement-learning/README.md)
+- [大模型训练与通用技术专题](training/README.md)
 - [特性对比图谱：Why / Without / With / Trade-off](feature-comparison-atlas.md)
