@@ -8,6 +8,8 @@
 
 论文报告在 Qwen2.5-32B Base 上 AIME 2024 达到 50 分；这是**该论文的特定模型、数据、评测和训练预算下的结果**，不是对其它模型的保证。[论文摘要](https://arxiv.org/abs/2503.14476) DAPO 的官方仓库同时公开了数据、代码与训练记录，并明确其实现构建在 verl 之上。[官方仓库的可复现说明](https://github.com/BytedTsinghua-SIA/DAPO#reproducibility)
 
+![DAPO 产生原因与朴素 GRPO / 四项改动对比](assets/dapo-why-with-without.png)
+
 ## 2. 核心目标与算法
 
 DAPO 仍使用 GRPO 风格的组内相对优势：对每题的 \(G\) 个回答按 reward 标准化，并以 token 的新旧策略概率比做 clipped policy-gradient。区别是它将单一 clip 区间拆为 \(\varepsilon_{low}\)、\(\varepsilon_{high}\)，并在目标中按**所有有效 token**聚合 loss。完整目标与约束见[论文 Eq. (10)–(11)](https://arxiv.org/html/2503.14476v1#S3)。

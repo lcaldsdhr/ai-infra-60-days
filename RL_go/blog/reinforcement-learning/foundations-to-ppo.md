@@ -54,6 +54,8 @@ GAE 将多个长度的 TD residual 加权：
 
 ## 5. PPO 为什么需要 ratio 与 clip
 
+![PPO Clip 产生原因与 Without/With 对比](assets/ppo-clip-why-with-without.png)
+
 rollout 由旧策略 \(\pi_{old}\) 采样，训练时参数已经变为 \(\pi_\theta\)。重要性比率：
 
 \[

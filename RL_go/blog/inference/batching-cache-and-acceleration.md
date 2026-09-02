@@ -6,6 +6,8 @@
 
 ## 1. 从静态批处理到连续批处理
 
+![连续批处理产生原因与 Without/With 对比](assets/continuous-batching-why-with-without.png)
+
 静态 batch 要等同批最长序列结束才能释放整批，短请求完成后的槽位会空着。连续批处理在每次模型迭代重新排 batch：完成的请求退出，新请求立即进入。
 
 ```text
@@ -20,6 +22,8 @@
 
 ## 2. Paged KV Cache：逻辑连续，物理可离散
 
+![Paged KV Cache 产生原因与 Without/With 对比](assets/paged-kv-cache-why-with-without.png)
+
 请求的 KV Cache 会逐 token 增长，若为每个请求预留最大长度，会严重浪费；若频繁申请可变连续空间，又容易碎片化。PagedAttention 借鉴虚拟内存分页：
 
 ```text
@@ -32,11 +36,15 @@
 
 ## 3. Prefix Cache：相同前缀只做一次 Prefill
 
+![Prefix Cache 产生原因与 Without/With 对比](assets/prefix-cache-why-with-without.png)
+
 系统 Prompt、工具说明、公共文档前缀或多轮会话前缀若完全一致，可以复用其 KV blocks。命中依赖 token IDs、模型权重、位置编码、精度与 cache key 规则一致；文本看起来一样但模板或特殊 token 不同，也可能无法命中。
 
 应监控命中率、节省的 prefill tokens、缓存占用和驱逐次数。低命中场景盲目扩大缓存，可能只会挤压可用于活跃请求的 KV 空间。
 
 ## 4. 量化：减少容量与带宽，但要有匹配 Kernel
+
+![量化产生原因与 Without/With 对比](assets/quantization-why-with-without.png)
 
 | 类型 | 主要作用 | 典型风险 |
 | --- | --- | --- |
@@ -47,6 +55,8 @@
 量化后的文件更小不等于端到端更快。应同时测 prefill、decode、峰值显存和任务质量，并固定校准集、量化配置与运行时版本。
 
 ## 5. 投机解码：草稿提议，目标模型批量验证
+
+![投机解码产生原因与 Without/With 对比](assets/speculative-decoding-why-with-without.png)
 
 ```text
 Draft：   t1 → t2 → t3 → t4     快速提出候选

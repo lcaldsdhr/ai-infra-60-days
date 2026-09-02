@@ -8,6 +8,8 @@
 
 它适合有可验证结果的任务（数学、代码单测、格式约束）：同一 prompt 的多个 rollout 能用确定性或近确定性 reward 比较。若 reward 只有噪声偏好模型，或每题只采一个样本，组内相对基线的信号会很弱或不可得。
 
+![GRPO 产生原因与 Actor+Critic / Group Relative Advantage 对比](assets/grpo-why-with-without.png)
+
 ## 2. 核心算法
 
 对 prompt \(q\)，旧策略 \(\pi_{\theta_{old}}\) 采样 \(G\) 个完成 \(o_1,\ldots,o_G\)，得到序列回报 \(R_i\)。常用的组内标准化优势为：
