@@ -35,6 +35,10 @@ git submodule update --init RL_go/verl
 | SPIN | 自博弈式偏好优化；先确认所采用的 SPIN 论文定义 | [spin.md](spin.md) |
 | Agentic RL | 将工具调用、多步轨迹、环境反馈和信用分配纳入 RL 循环 | [agentic-rl.md](agentic-rl.md) |
 
+## 一手资料
+
+- [LLM 推理与强化学习课程：一手资料索引](research/learning-curriculum-primary-sources.md)：覆盖 Attention、推理优化、经典 RL、RLHF/LLM RL、Agentic RL 与固定版本 verl 源码。
+
 ## 版本更新流程
 
 1. 记录要升级到的 `verl@commit` 与原因。
