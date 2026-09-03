@@ -8,7 +8,7 @@
 | --- | --- | --- | --- | --- | --- |
 | KV Cache | 自回归每步会重复计算历史 K/V | 每个新 token 重算全部历史 | 缓存历史 K/V，只追加新 token | 显存线性增长、仍需读取历史 | [PD/KV Cache](inference/pd-disaggregation.md) |
 | 连续批处理 | 请求输出长度不同造成 batch 空洞 | 短请求完成后等待最长序列 | 每轮重组 batch、完成即换入新请求 | 调度、公平性与 P99 | [Batch/Cache](inference/batching-cache-and-acceleration.md#1-从静态批处理到连续批处理) |
-| Paged KV | KV 动态增长导致预留浪费和碎片 | 连续大块、并发受限 | 逻辑 block 映射到离散物理页 | block table、页大小与调度 | [Batch/Cache](inference/batching-cache-and-acceleration.md#2-paged-kv-cache逻辑连续物理可离散) |
+| Paged KV | KV 动态增长导致预留浪费和碎片 | 连续大块、并发受限 | 逻辑 block 映射到离散物理页 | block table、页大小与调度 | [PagedAttention 深入](inference/paged-attention-deep-dive.md) |
 | Prefix Cache | 系统提示/RAG 前缀重复 | 重复执行同一 Prefill | 共享公共前缀 KV，从分叉点继续 | 命中率、驱逐和版本一致性 | [Batch/Cache](inference/batching-cache-and-acceleration.md#3-prefix-cache相同前缀只做一次-prefill) |
 | 量化 | 权重容量和 Decode 带宽成为瓶颈 | FP16/BF16 占用与传输字节高 | INT8/INT4 以 scale 近似表示 | 量化误差、校准和 kernel | [Batch/Cache](inference/batching-cache-and-acceleration.md#4-量化减少容量与带宽但要有匹配-kernel) |
 | 投机解码 | 大模型 Decode 串行、一次只前进一步 | 目标模型逐 token forward | Draft 多步提议、Target 批量验证 | Draft/验证成本、接受率依赖 | [Batch/Cache](inference/batching-cache-and-acceleration.md#5-投机解码草稿提议目标模型批量验证) |

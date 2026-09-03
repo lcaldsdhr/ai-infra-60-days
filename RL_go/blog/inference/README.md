@@ -6,6 +6,7 @@
 
 - [LLM 推理系统全景：从请求到性能治理](serving-system-guide.md)：建立请求生命周期、指标与优化手段的总地图。
 - [高吞吐推理：Batch、Cache 与解码加速](batching-cache-and-acceleration.md)：连续批处理、Paged KV、Prefix Cache、量化、投机解码与并行。
+- [PagedAttention 深入：Block Table、分页读取与 KV 生命周期](paged-attention-deep-dive.md)：用两张图和最小代码理解地址映射、专用 kernel、前缀共享、Copy-on-Write 与释放。
 - [Prefill–Decode（PD）分离：从一次请求到集群调度](pd-disaggregation.md)：理解 Prefill/Decode 的不同瓶颈、不分离/静态分离/动态分离的边界，以及 KV Cache 传输、背压和一致性要求。
 - [容量规划与可观测性](observability-and-capacity.md)：把 TTFT、TPOT、吞吐、P99、KV 显存和 SLO 串成可诊断闭环。
 
@@ -13,8 +14,9 @@
 
 1. 先读推理系统全景，知道一个请求经过哪些阶段、各指标属于哪里。
 2. 再读 Batch/Cache/加速专题，理解单机吞吐如何提升。
-3. 接着读 PD 分离，理解阶段隔离、KV 传输和集群调度。
-4. 最后用容量规划与可观测性把优化效果量化，而不是只看单一吞吐数字。
+3. 单独深入 PagedAttention，掌握 block table 和 KV block 生命周期。
+4. 接着读 PD 分离，理解阶段隔离、KV 传输和集群调度。
+5. 最后用容量规划与可观测性把优化效果量化，而不是只看单一吞吐数字。
 
 ## 本专题的指标语言
 

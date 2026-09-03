@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | A1 | 请求生命周期、Prefill/Decode、指标 | [推理系统全景](blog/inference/serving-system-guide.md) | 能分解 queue、TTFT、TPOT 与 E2E |
 | A2 | KV Cache 原理与容量 | [PD/KV 专题](blog/inference/pd-disaggregation.md) | [KV 容量计算器](code/inference_kv_capacity/README.md) |
-| A3 | Continuous batching、Paged KV、Prefix Cache | [Batch/Cache/加速](blog/inference/batching-cache-and-acceleration.md) | 画出 static/continuous 时间线与 block table |
+| A3 | Continuous batching、Paged KV、Prefix Cache | [Batch/Cache/加速](blog/inference/batching-cache-and-acceleration.md)、[PagedAttention 深入](blog/inference/paged-attention-deep-dive.md) | 画出 static/continuous 时间线与 block table |
 | A4 | 量化、投机解码 | [Batch/Cache/加速](blog/inference/batching-cache-and-acceleration.md) | 同时报性能、质量、显存与接受率 |
 | A5 | TP/PP/EP、PD 分离 | [PD 分离](blog/inference/pd-disaggregation.md) | 记录拓扑、KV 传输与 P/D 队列 |
 | A6 | 容量、压测、SLO | [容量与可观测性](blog/inference/observability-and-capacity.md) | 获得并发—goodput—P99 安全工作区 |

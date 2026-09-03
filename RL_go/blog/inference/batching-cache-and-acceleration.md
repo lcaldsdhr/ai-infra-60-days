@@ -34,6 +34,8 @@
 
 这样可以按需分配、释放和共享前缀，还能用 copy-on-write 支持共享块。分页改善的是**内存管理与并发容量**，不是把 attention 数学变成常数复杂度。
 
+更完整的地址换算、kernel 读取路径、引用计数和 Copy-on-Write 过程见 [PagedAttention 深入专题](paged-attention-deep-dive.md)。
+
 ## 3. Prefix Cache：相同前缀只做一次 Prefill
 
 ![Prefix Cache 产生原因与 Without/With 对比](assets/prefix-cache-why-with-without.png)
