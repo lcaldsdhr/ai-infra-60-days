@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI Infra 技术图风格"
+  short_description: "生成清晰精确、适合技术博客、论文解析与课程演示的系统原理图"
+  default_prompt: "Use $technical-diagram-style to create a clear technical diagram for this concept."
