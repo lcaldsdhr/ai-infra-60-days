@@ -18,6 +18,8 @@
 - ✍️ **手写代码**：25 道高频面试手写题（Ring-AllReduce、AdamW、ColumnParallelLinear、RMSNorm…）
 - 🎯 **面试导向**：覆盖跳槽中常见的工程实现题与系统设计题
 
+专题文章入口：[AI Infra 模型与架构博客](blog/README.md)。最新新增：[Qwen3.8 最新进展：站在 Qwen3.5 上看两条升级路线](blog/qwen3.8-latest-from-qwen3.5.md)。
+
 **学习范围**：AI Infra 全栈（**不含算子开发**，算子有独立学习线）
 
 ---
