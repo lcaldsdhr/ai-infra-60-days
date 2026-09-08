@@ -103,6 +103,8 @@ native context = 262,144
 
 ### 5.1 QSA：Attention 不再扫描全部历史
 
+如果你希望逐字段理解 Flash-Next 的参数口径、QSA 训练、GR、N-gram Memory 与 Muon/AdamW 的工程代价，请继续阅读[《Qwen3.8-Flash-Next 深入》](qwen3.8-flash-next-deep-dive.md)。
+
 ![QSA 的 micro-block 选择与稀疏 Attention](assets/qwen3.8-qsa-mechanism.png)
 
 你已经知道 Qwen3.5 用 GDN 压缩历史、每隔三层放一个 GA 做精确检索。问题在于：上下文达到几十万甚至一百万 token 时，即便只有四分之一层使用全局 Attention，完整读取 KV 仍然昂贵。
