@@ -103,7 +103,7 @@ native context = 262,144
 
 ### 5.1 QSA：Attention 不再扫描全部历史
 
-如果你希望逐字段理解 Flash-Next 的参数口径、QSA 训练、GR、N-gram Memory 与 Muon/AdamW 的工程代价，请继续阅读[《Qwen3.8-Flash-Next 深入》](qwen3.8-flash-next-deep-dive.md)。
+关于 Flash-Next 的参数、训练与部署细节，见[《Qwen3.8-Flash-Next：架构、训练与部署》](qwen3.8-flash-next-deep-dive.md)。
 
 ![QSA 的 micro-block 选择与稀疏 Attention](assets/qwen3.8-qsa-mechanism.png)
 
