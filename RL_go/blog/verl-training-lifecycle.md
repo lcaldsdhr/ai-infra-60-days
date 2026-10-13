@@ -87,6 +87,38 @@ DataProto(size=2)
 
 读源码时，把以下操作理解为周转箱操作即可：`select` 取要送往下游的字段，`select_idxs` 筛样本，`union` 合并上游新增字段，`reorder` 恢复异步结果顺序，`repeat` 为同一 prompt 扩展多条 rollout。实现见 [`select`](https://github.com/volcengine/verl/blob/c4b389adadc58ce51cb2b63e70df497ca166d77f/verl/protocol.py#L600-L650)、[`union`](https://github.com/volcengine/verl/blob/c4b389adadc58ce51cb2b63e70df497ca166d77f/verl/protocol.py#L781-L814) 与 [`reorder` / `repeat`](https://github.com/volcengine/verl/blob/c4b389adadc58ce51cb2b63e70df497ca166d77f/verl/protocol.py#L963-L1005)。
 
+### 第 0 维为什么必须一致：一行对应一次 rollout
+
+第 0 维是样本排列的方向，本身不存储 prompt 身份。在 rollout 完成后的训练 batch 中，一行通常对应**一条 prompt 的一次 rollout**；同一行的回答、mask、log-prob、reward 和 advantage 必须描述这一次 rollout。采样前的 prompt batch 则通常是一行一条 prompt，经过 `repeat` 和生成后才扩展为多条 rollout。
+
+以两个 prompt 各采样两次为例，共有四条 rollout。下表是教学示例，reward 仅用于说明对应关系：
+
+| 第 0 维索引 | `uid`（prompt 分组标识） | 回答 | 回答级 reward |
+| --- | --- | --- | --- |
+| 0 | A | A1 | 1 |
+| 1 | A | A2 | 0 |
+| 2 | B | B1 | 0 |
+| 3 | B | B2 | 1 |
+
+假设每条回答有两个有效 token，则字段可以组织为：
+
+```text
+responses          [4, 2]   四条回答，每条两个 token
+response_mask      [4, 2]   每条回答对应的有效 token 标记
+old_log_probs      [4, 2]   旧训练策略对这些 token 的 log-prob
+ref_log_prob       [4, 2]   reference policy 对相同 token 的 log-prob（若启用）
+advantages         [4, 2]   对应 token 的优势
+uid                [4]      每次 rollout 所属的 prompt：A、A、B、B
+```
+
+回答级 reward 可以表示为 `[4]`；进入 token 级奖励计算时，`token_level_scores` / `token_level_rewards` 则按回答 token 布局组织为 `[4, 2]`。这不意味着所有字段的完整 shape 都必须相同：例如 prompt token 的 `input_ids` 可以是 `[4, P]`，回答为 `[4, L]`。共同要求是样本维长度为 4；参与同一 token 运算的字段还必须在 token 位置上对齐。批次级 `meta_info` 不受这一样本维要求约束。
+
+因此，`old_log_probs[2]`、`responses[2]` 和 `advantages[2]` 都取出 **B1 这一次 rollout** 的数据。索引 2 不会自动找到问题 B 的全部经验；GRPO 要通过 `uid=B` 找到索引 `[2, 3]`，把 B1、B2 的奖励放在同一组中计算相对优势。可以记成：**第 0 维索引取一次 rollout，`uid` 找同一 prompt 的一组 rollout。**
+
+为什么必须保持这个契约？PPO 的 token 级更新需要将同一次 rollout、同一个 token 的新旧 log-prob、advantage 和 mask 放在一起计算。如果只重排回答，却没有同步重排奖励或优势，就可能把 A1 的回答与 B2 的训练信号配在一起。即使所有 shape 都合法，训练梯度仍然是错的。同样，若 `uid` 与回答错位，GRPO 就可能把不同问题的奖励分到同一组。
+
+所以检查不能只停在“第 0 维长度一致”：`repeat`、`select_idxs`、`reorder` 和跨 worker 切分都必须对样本级字段使用一致的索引映射，确保**相同索引始终指向相同的一次 rollout**。Agentic RL 中，这一次 rollout 可以是一条包含多轮生成、工具调用和环境反馈的完整轨迹；具体存储若再拆成多个片段，还需额外保留轨迹与片段的关联标识。
+
 ### 用字段演进读代码
 
 下面不是逐行摘抄 Verl，而是把上述 API 串成“字段怎样长出来”的最小骨架。阅读真实训练 loop 时，用它对照每次 `union` 前后有哪些 key 会非常有效：
@@ -109,12 +141,17 @@ rollout_input = rollout_input.select(
 
 rollout_output = rollout_worker.generate_sequences(rollout_input)
 # rollout_output 典型地带回 responses、rollout_log_probs、response_mask 等。
-train_batch = rollout_input.union(rollout_output)
+# 前提：输入输出已逐行对应；若只有输出错序，应先恢复输出顺序。
+if output_is_out_of_order:
+    # restore_indices 是调用方依据 rollout 唯一身份/位置映射构造的 CPU 索引 tensor。
+    # 这是教学条件，不表示真实 manager 必然乱序返回。
+    rollout_output.reorder(restore_indices)
 
-# 若异步返回打乱了顺序，先恢复顺序，再计算 reward / advantage。
-train_batch.reorder(original_indices)
+train_batch = rollout_input.union(rollout_output)
 assert len(train_batch.non_tensor_batch["uid"]) == train_batch.batch.batch_size[0]
 ```
+
+`union` 按行位置合并，不会按 `uid` 自动匹配。若输入输出已经错配，合并后一起 `reorder` 不能修复配对；必须先恢复被打乱的一侧。同题多个 rollout 共享 `uid`，区分每次 rollout 还需要唯一身份或可靠的位置映射。`union` 原地修改并返回自身，`reorder` 原地修改但不返回新 batch。
 
 **源码跟读检查点**：每经过一次 `repeat`、`select_idxs` 或 `reorder`，都问一句：`uid`、`responses`、`response_mask` 和 `rollout_log_probs` 的第 0 维是否仍代表同一条样本？这比只检查 tensor shape 更能发现实际错配。
 
@@ -240,6 +277,8 @@ step=17 | reward/mean=0.50 | adv/std=1.00 | actor/loss=-0.018
 后者是实验策略，应写入配置和实验记录；trainer 不会替你判断“模型已经足够好”。
 
 ## 把它串回一条源码阅读路线
+
+配套复习：[训练生命周期 Q&A：样本对齐、训练循环、策略概率与异步训推](verl-lifecycle-qa.md)，记录本轮讨论的例子与纠正，包含 on-policy 澄清及下一次的异步系统学习入口。
 
 1. [`verl/protocol.py`](https://github.com/volcengine/verl/blob/c4b389adadc58ce51cb2b63e70df497ca166d77f/verl/protocol.py)：先掌握批次契约与字段变换；
 2. [`ray_trainer.py`](https://github.com/volcengine/verl/blob/c4b389adadc58ce51cb2b63e70df497ca166d77f/verl/trainer/ppo/ray_trainer.py)：沿着 rollout → reward → advantage → update 读调用顺序；

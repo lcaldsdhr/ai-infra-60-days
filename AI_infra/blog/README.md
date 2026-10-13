@@ -1,4 +1,10 @@
-# AI Infra 模型与架构博客
+# AI Infra 模型、架构与工程实践博客
+
+## 报错分析与排查
+
+1. [模型训练与推理常见报错：从现象到根因的排查方法](common-model-errors-and-debugging.md)：内存踩踏、OOM、索引与张量错误、NaN/Inf、autograd、NCCL、环境/数据/checkpoint，以及 verl / Agentic RL 静默错配。
+
+作图研究：[从高引用 arXiv 论文学习技术图绘制风格](../docs/research/arxiv-figure-style-study.md)，包含论文原图位置、视觉分析与后续作图准则。
 
 ## Qwen 系列
 

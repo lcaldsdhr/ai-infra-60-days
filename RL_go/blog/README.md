@@ -11,6 +11,7 @@
 ## 已收录
 
 - [Verl 训练生命周期：从 DataProto 到 rollout 与 actor 更新](verl-training-lifecycle.md)
+- [训练生命周期 Q&A：样本对齐、训练循环、策略概率与异步训推](verl-lifecycle-qa.md)
 - [LLM 推理专题](inference/README.md)
 - [强化学习专题](reinforcement-learning/README.md)
 - [大模型训练与通用技术专题](training/README.md)

@@ -20,6 +20,8 @@
 
 专题文章入口：[AI Infra 模型与架构博客](blog/README.md)。最新新增：[Qwen3.8 最新进展：站在 Qwen3.5 上看两条升级路线](blog/qwen3.8-latest-from-qwen3.5.md)。
 
+工程排查入口：[模型训练与推理常见报错分析](blog/common-model-errors-and-debugging.md)，覆盖内存踩踏、OOM、数值异常、分布式通信与 RL 数据契约，并附示意图。
+
 **学习范围**：AI Infra 全栈（**不含算子开发**，算子有独立学习线）
 
 ---

@@ -26,6 +26,8 @@ git submodule update --init RL_go/verl
 
 ## 算法专题
 
+交互复习记录：[verl 训练生命周期 Q&A](../blog/verl-lifecycle-qa.md)：DataProto 样本对齐、外层 RL step / 内层 PPO epochs、old/reference/rollout 概率、on-policy 澄清与异步训推概览，并保留下一次讨论入口。
+
 建议按“组内相对优势 → 稳定性与长度偏差 → 自博弈 → Agent 长程信用分配”的顺序阅读：
 
 | 主题 | 学习重点 | 文档 |
