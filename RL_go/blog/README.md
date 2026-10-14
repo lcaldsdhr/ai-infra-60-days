@@ -12,7 +12,7 @@
 
 ### RL 系统基础课程
 
-- [第 1 课：权重版本与训推同步](verl-weight-version-and-sync.md)：图像、固定版本源码、CPU 教学实验与课后题；三题已回答并反馈，同步完成条件待追问。
+- [第 1 课：权重版本与训推同步](verl-weight-version-and-sync.md)：图像、固定版本源码、CPU 教学实验与课后题；本课问答完成，真实 GPU 同步未验证。
 - 后续学习：数据/mask 正确性 → checkpoint 与恢复能力 → 按瓶颈选择异步、共置与 packing。
 
 ### 文章与复习
