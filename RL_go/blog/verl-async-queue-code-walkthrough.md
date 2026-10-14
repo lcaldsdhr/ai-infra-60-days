@@ -163,4 +163,4 @@ python RL_go/code/async_experience_queue/demo.py
 2. MessageQueue 容量为 2，当前 `[A(v17), B(v17)]`，收到 `C(v18)`。队列结果、返回值分别是什么？能否据返回值直接重发 C？
 3. Trainer 要两个样本，目前只有 A。它 await 第二个样本时，Rollouter 是否还能继续生成 B？请说明 `await` 和 Condition 的作用。
 
-交互状态：本轮从理论转向源码；课后题待回答，后续回答继续追加本文。
+交互状态：本轮从理论转向源码；课后题待回答，后续回答继续追加本文。2026-10-14 用户自评“吃透了”并要求下一点；未逐题作答，不记录为题目已全部验证。下一课：[数据与 mask 正确性](verl-data-and-masks.md)。

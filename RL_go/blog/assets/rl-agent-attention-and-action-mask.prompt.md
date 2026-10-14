@@ -1,0 +1,9 @@
+# Agent attention 与动作 mask：生成记录
+
+2026-10-14，内置 imagegen；学术增强风格。已核对九个完整位置、七个 response 位置、mask 值和示例均值。箭头仅示意后续回答读取历史上下文；非实测 attention 权重。
+
+## 最终提示词
+
+Create an elegant high-information academic teaching figure in Chinese, wide white landscape 2:1. Modest heading "能读到，不等于要学会生成". Main visual center is one aligned token sequence split into five semantic spans: "Prompt" 2 cells Q0 Q1 (gray), "模型工具调用" 2 cells A0 A1 (blue), "工具返回" 2 cells T0 T1 (soft amber), "模型最终回答" 2 cells F0 F1 (teal), "Padding" 1 cell PAD (pale gray). Nine cells exact aligned. Under it a row labelled "attention_mask [1,9]" with exact values 1 1 1 1 1 1 1 1 0. Another row labelled "动作 loss mask · 展示对齐" with exact values 0 0 1 1 0 0 1 1 0. On tools column highlight vertical amber zone across T0,T1 that contrasts attention1 and loss0, callout "工具是上下文，不是策略采样动作". Below sequence a horizontal brace spanning only cells A0 through PAD, caption "response_ids [1,7]：可含工具 token". Below brace one exact aligned smaller row "response_mask [1,7] = [1, 1, 0, 0, 1, 1, 0]".
+Lower left small causal context visualization: query at F0 points back toward Q0..T1 with faint thin arrows, especially T0/T1 amber, caption "后续回答读取工具结果". Label "attention_mask 与 causal mask 配合；仅展示 F0 的部分依赖". No future-token attention arrow.
+Lower right compact math example separate from the primary grid: "动作 token loss：[1,3,2,4]" -> "正确均值 = 10 / 4 = 2.5". Beside or below "误把工具计入：[1,3,100,100,2,4]" -> rust "错误均值 = 210 / 6 = 35". Clear note "教学数值，非真实训练日志". Avoid extra repeated paragraphs, badges, legend boxes, heavy borders. Geometric token grid and aligned masks carry the meaning, dark navy thin rules, precise Chinese labels, subtle highlights. Topic is policy-gradient action selection mask, not all objectives; small caption "忽略模板边界与多模态细节；mask 依训练目标定义". Keep shape and all nine mask columns absolutely correct.
