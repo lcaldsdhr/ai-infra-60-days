@@ -184,6 +184,44 @@ new_batch = rollout.generate()        # 完成同步后，来源 v18
 
 状态：本课三题及同步完成追问已讨论完成；真实 GPU/分布式行为仍未运行验证。下一课数据/mask 正确性尚未开始。
 
+## 异步延伸 Q&A：v17 的待处理经验从哪里来？
+
+用户设想：生成侧仍使用 v17，Trainer 已更新到 v18/v19，v18 同步需约 1 秒。队列中的 v17 待处理经验，是否就是同步未完成时生成的 response/轨迹？
+
+结论：这是一种可能来源，但不是全部。**待处理**描述消费状态，**v17**描述采样来源，**同步未完成**描述权重交接状态；三者不能视为同一件事。
+
+![异步时间线：生成侧继续使用 v17，以及生成完成的经验在同步前后等待训练消费](assets/rl-async-weight-lag-and-queue.png)
+
+图 2：概念时间线，1 秒为用户给出的示意时间，不是性能实测。图假设采样服务与权重交接可按某种后端机制协调，切换后新请求使用 v18；不表示所有后端都能边生成边原地应用权重。同步载荷是稳定的 v18 修订，Trainer 后续更新不能使它成为混合 v18/v19 的参数。
+
+图中两条 v17 经验来自不同时间：
+
+- τA 在 v18 同步开始前已经生成，只因队列调度/训练吞吐等原因尚未消费。
+- τB 在生成侧仍实际使用 v17 的阶段完成，可能发生在 v18 的交接延迟期间。
+
+即使 Rollout 已切换 v18，τB 也可能还在队列里；更新生成权重不会自动刷新、清空或改写队列里的历史经验。反过来，即使存在权重同步延迟，生成的经验若马上被训练消费，也不一定长期积压。
+
+需要区分两类滞后：**生成侧权重滞后**是当前采样参数落后于 Trainer；**队列滞后**是已经生成的经验等待处理。控制其中一个不自动消除另一个。
+
+prompt 通常由数据集或环境提供；Rollout 根据 prompt 和上下文生成 response、工具动作等。这里把经验简写成 prompt/response 对；训练通常还需要 token IDs、有效 mask、采样 log-prob、reward 及来源版本等字段。Agentic RL 的一条经验还可能是一段多轮工具轨迹。
+
+教学伪代码体现来源版本随经验进入队列：
+
+```python
+experience = generate_with_loaded_policy(prompt)
+# 来源应由实际生成引擎/请求记录，不能拿 Trainer 当前版本覆盖。
+queue.put(experience)
+
+experience = queue.get()
+age = current_actor_revision - experience.source_revision
+# 按训练方案决定接收、过滤或修正，不修改 source_revision。
+train_if_eligible(experience, age)
+```
+
+这段伪代码以每条经验固定一个采样版本为简化。若 partial rollout 或多轮轨迹跨版本继续生成，应记录更细粒度的版本范围/来源，不能只用一个标签掩盖混合来源。修订编号差只是一项指标，不等于策略概率差；还要分析真实 log-prob mismatch 与样本等待时间。
+
+本次澄清已记录。异步队列、背压与可继续生成的同步实现还未做真实后端实验。
+
 ## 下一课
 
 数据与 mask 正确性：从 prompt、assistant token、工具 observation 和 padding 的位置出发，理解哪些 token 提供上下文，哪些参与策略 loss。
