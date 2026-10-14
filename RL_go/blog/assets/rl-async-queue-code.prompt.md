@@ -1,0 +1,11 @@
+# 异步经验队列：图像生成记录
+
+2026-10-14，内置 imagegen。图示区分 pending_queue（未生成任务）与 MessageQueue（完成经验），已定向修正旧经验队列标签和权重同步说明。卡片为教学抽象，不声明队列元素一定是一条回答。视觉检查已完成。
+
+## 初始提示词
+
+Create a clear visually engaging academic code-reading figure, white landscape canvas ratio about2:1, restrained navy fine lines, pale blue input tasks, teal completed experiences, amber queue waiting, rust oldest item eviction. Small heading "verl 异步队列：任务与经验是两种状态". Main top data path left to right: two small document-like prompt cards "prompt A" and "prompt B" enter an outlined small queue of pale blue slots labelled "pending_queue · 待生成任务"; flow to a compact generator glyph "generate_sequences_single", then a teal structured sample record explicitly showing "response", "source version", "mask / log-prob", then an amber/teal buffer labelled "MessageQueue · 已完成经验", then a grouped mini-batch stack labelled "Trainer · 凑批更新". At generation node a slim label "await：等待此任务，不阻塞其他协程". Thin arrows, no repeating decorative boxes. Bottom two compact explanatory insets (a) "队列不是权重同步" shows queued samples "A · v17", "B · v17" remain same while separate rollout weight badge changes "v17 → v18"; no arrows retag queue. (b) "满队列：淘汰最旧" explicitly capacity2, before slots "[A, B]", incoming C, after slots "[B, C]", A outgoing rust arrow "丢弃 A", small label "新样本 C 仍入队；返回 False 表示发生丢弃". A tiny gray caption "固定源码实验路径；图中一个卡片只示意一个样本单元". No wall-clock timings, no global synchronization claim, no paragraphs, no huge title. Make prompt versus completed experience state transformation focal, tasteful geometric silhouettes, moderate useful information density, crisp Simplified Chinese labels.
+
+## 定向修正
+
+Correct the lower-left inset (a) only. The queue storing already completed A·v17 and B·v17 samples must be labelled exactly 'MessageQueue：已完成经验', replacing 'pending_queue：待生成任务'. These are completed experiences, not prompts awaiting generation. In the same inset, replace the two lines below the right-hand weight v17→v18 box with exactly '同步改变后续采样所用权重' and '旧经验保留真实来源版本'. Preserve the whole main top pipeline, lower-right full queue inset, all arrows and all other layout and labels. Do not change top pending_queue label, which is correct for ungenerated tasks.

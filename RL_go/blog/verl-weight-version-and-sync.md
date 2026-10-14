@@ -222,6 +222,8 @@ train_if_eligible(experience, age)
 
 本次澄清已记录。异步队列、背压与可继续生成的同步实现还未做真实后端实验。
 
+下一步源码学习：[一条经验怎样入队、出队与凑批](verl-async-queue-code-walkthrough.md)，包含真实实验路径、机制图和 CPU 队列实验。
+
 ## 下一课
 
 数据与 mask 正确性：从 prompt、assistant token、工具 observation 和 padding 的位置出发，理解哪些 token 提供上下文，哪些参与策略 loss。

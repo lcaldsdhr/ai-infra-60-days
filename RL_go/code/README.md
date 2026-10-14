@@ -15,6 +15,7 @@
 | 实验 | 内容 | 运行方式 |
 | --- | --- | --- |
 | [weight_version_demo](weight_version_demo/README.md) | 验证标签不等于权重同步、全部 replicas 一致与历史来源不变 | `python RL_go/code/weight_version_demo/demo.py` |
+| [async_experience_queue](async_experience_queue/README.md) | 验证旧经验来源保留、满队列淘汰最旧与空队列异步等待 | `python RL_go/code/async_experience_queue/demo.py` |
 | [toy_kv_cache_attention](toy_kv_cache_attention/README.md) | 用单头注意力验证缓存/重算结果一致，并统计 K/V 重复投影 | `python RL_go/code/toy_kv_cache_attention/demo.py` |
 | [inference_kv_capacity](inference_kv_capacity/README.md) | 估算每 token、单序列和并发请求的 KV Cache 容量 | `python RL_go/code/inference_kv_capacity/demo.py` |
 | [ppo_clip_demo](ppo_clip_demo/README.md) | 手算正负优势下的 importance ratio 与 PPO clipped objective | `python RL_go/code/ppo_clip_demo/demo.py` |
