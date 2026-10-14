@@ -10,6 +10,13 @@
 
 ## 已收录
 
+### RL 系统基础课程
+
+- [第 1 课：权重版本与训推同步](verl-weight-version-and-sync.md)：图像、固定版本源码、CPU 教学实验与课后题；当前等待作答。
+- 后续学习：数据/mask 正确性 → checkpoint 与恢复能力 → 按瓶颈选择异步、共置与 packing。
+
+### 文章与复习
+
 - [Verl 训练生命周期：从 DataProto 到 rollout 与 actor 更新](verl-training-lifecycle.md)
 - [训练生命周期 Q&A：样本对齐、训练循环、策略概率与异步训推](verl-lifecycle-qa.md)
 - [LLM 推理专题](inference/README.md)
