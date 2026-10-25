@@ -13,6 +13,7 @@
 │   ├── docs/                         # 学习笔记、源码导读与实验记录
 │   └── code/                         # 可运行的 RL / verl 实验
 ├── templates/learning-and-agent/     # 可复用课程与 Agent 协作模板
+├── 资料/                            # Skill 使用指南、示例与 Sample Mixer 调研提示词
 ├── AGENTS.md                         # 仓库协作规范
 └── SKILLS_SUMMARY.md                 # 已安装 Skill 的使用速览
 ```
@@ -22,6 +23,7 @@
 - [AI Infra 60 天计划](AI_infra/README.md)
 - [RL / verl 学习线](RL_go/README.md)
 - [课程与 Agent 模板](templates/learning-and-agent/README.md)
+- [资料：Skill 与 Sample Mixer 调研](资料/README.md)
 
 ## 初始化 verl 源码
 
